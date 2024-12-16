@@ -1,15 +1,5 @@
 #include <iostream>
-#include "isa.h"
-
-#define HANDLE_ERROR(err) \
-    if (err != cudaSuccess) { \
-        std::cerr << "Error: " << cudaGetErrorString(err) << "\n"; \
-        return; \
-    }
-
-__global__ void processingElemKernel(void) {
-    
-};
+#include "../include/utils.h"
 
 void queryGPUProperties() {
     int deviceCount = 0;
@@ -49,20 +39,4 @@ void queryGPUProperties() {
         std::cout << "  Peak memory bandwidth: "
                   << 2.0 * deviceProp.memoryClockRate * (deviceProp.memoryBusWidth / 8) / 1.0e6 << " GB/s" << std::endl;
     }
-}
-
-int main() {
-    queryGPUProperties();
-
-    // read instructions from file and memcopy to cuda memory
-
-    // read grayscale pixels from image and memcpy to cuda (constant) memory
-
-    // cudamalloc memory for each processing elem
-
-    // cudamalloc memory for program counter when neighbour written
-    
-    processingElemKernel<<<1, 1>>>();
-
-    return 0;
 }

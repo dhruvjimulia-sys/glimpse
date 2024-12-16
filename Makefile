@@ -1,25 +1,16 @@
-# Makefile for compiling main.cu with isa.h
-
-# Compiler
 NVCC = nvcc
 
-# Compiler flags
-CFLAGS =   # Adjust the architecture as needed
+CFLAGS = 
 
-# Source files
-SRC = main.cu
+SRC = $(wildcard src/*.cu) 
 
-# Output executable
-TARGET = main
+TARGET = build/main
 
-# Default target
 all: $(TARGET)
 
-# Rule to compile the CUDA file
 $(TARGET): $(SRC)
 	$(NVCC) $(CFLAGS) -o $(TARGET) $(SRC)
 
-# Clean up build files
 clean:
 	rm -f $(TARGET)
 
