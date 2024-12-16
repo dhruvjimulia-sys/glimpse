@@ -1,8 +1,8 @@
 NVCC = nvcc
 
-CFLAGS = 
+CFLAGS = -rdc=true
 
-SRC = $(wildcard src/*.cu) $(wildcard src/**/*.cu) $(wildcard src/**/*.cpp)
+SRC = $(wildcard src/*.cu) $(wildcard src/**/*.cu) $(wildcard src/*.cpp) $(wildcard src/**/*.cpp)
 
 TARGET = build/main
 

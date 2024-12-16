@@ -21,19 +21,19 @@ struct Result {
     ResultKind resultKind;
     uint8_t address;
 
-    void print() const;
+    __device__ __host__ void print() const;
 };
 
 struct InputC {
     bool negated = false;
     Input input;
 
-    void print() const;
+    __device__ __host__ void print() const;
 };
 
 enum class Carry { Zero, One, CR };
 
-void printCarry(Carry carry);
+__device__ __host__ void printCarry(Carry carry);
 
 struct Instruction {
     Result result; 
@@ -42,7 +42,7 @@ struct Instruction {
     Carry carry; 
     ResultType resultType; 
 
-    void print() const;
+    __device__ __host__ void print() const;
 };
 
 struct Program {
@@ -51,7 +51,7 @@ struct Program {
 
     Program(size_t count, Instruction* instr);
     ~Program();
-    void print() const;
+    __device__ __host__ void print() const;
 };
 
 class Parser {

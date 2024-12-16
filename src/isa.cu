@@ -42,15 +42,15 @@ void printCarry(Carry carry) {
 }
 
 void Instruction::print() const {
-        result.print();
-        printf(" = ");
-        input1.print();
-        printf(" + ");
-        input2.print();
-        printf(" + ");
-        printCarry(carry);
-        printf(" ");
-        printf("(%c)\n", resultType.value);
+    result.print();
+    printf(" = ");
+    input1.print();
+    printf(" + ");
+    input2.print();
+    printf(" + ");
+    printCarry(carry);
+    printf(" ");
+    printf("(%c)\n", resultType.value);
 };
 
 Program::Program(size_t count, Instruction* instr) : instructionCount(count), instructions(instr) {}

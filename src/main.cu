@@ -5,6 +5,7 @@
 #include "utils/file_utils.h"
 
 __global__ void processingElemKernel(Instruction* instructions, size_t num_instructions) {
+    instructions[0].print();
     // for (int i = 0; i < num_instructions; i++) {
     //     instructions[i].print();
     // }
