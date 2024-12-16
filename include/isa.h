@@ -38,8 +38,10 @@ struct Instruction : ASTNode {
     std::shared_ptr<ResultType> resultType;
 
     void print() const {
-        std::cout << "Result: " << result->value << ", Input1: " << input1->input->value
-                  << ", Input2: " << input2->input->value << ", Carry: " << carry->value
+        std::cout << "Result: " << result->value 
+                  << ", Input1: " << (input1->negated ? "~" : "") << input1->input->value
+                  << ", Input2: " << (input2->negated ? "~" : "") << input2->input->value 
+                  << ", Carry: " << carry->value
                   << ", ResultType: " << resultType->value << std::endl;
     }
 };
@@ -69,7 +71,7 @@ public:
             program->instructions.push_back(parseInstruction());
             expect(';');
         }
-        return nullptr;
+        return program;
     }
 
 private:
@@ -148,8 +150,10 @@ private:
     std::shared_ptr<Carry> parseCarry() {
         skipWhitespace();
         auto carry = std::make_shared<Carry>();
-        if (match("0") || match("1") || match("CR")) {
-            carry->value = input.substr(pos - 1, 1); // "0" or "1" or "CR"
+        if (match("0") || match("1")) {
+            carry->value = input.substr(pos - 1, 1); // "0" or "1"
+        } else if (match("CR")) {
+            carry->value = input.substr(pos - 2, 2); // "CR"
         } else {
             throw std::runtime_error("Invalid carry at position " + std::to_string(pos));
         }

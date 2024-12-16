@@ -1,4 +1,4 @@
-N = PD + 0 + 0 (s);
+neighbour = PD + 0 + 0 (s);
 [2] = PD + up + 0 (s);
 [1] = [1] + 0 + CR (s);
 [2] = [2] + down + 0 (s);

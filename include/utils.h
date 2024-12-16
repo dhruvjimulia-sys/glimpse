@@ -1,5 +1,4 @@
-#ifndef VECTOR_OPS_H
-#define VECTOR_OPS_H
+#pragma once
 
 #define HANDLE_ERROR(call) { \
     cudaError_t error = call; \
@@ -10,5 +9,3 @@
 }
 
 void queryGPUProperties();
-
-#endif

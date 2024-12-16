@@ -2,7 +2,7 @@ NVCC = nvcc
 
 CFLAGS = 
 
-SRC = $(wildcard src/*.cu) 
+SRC = $(wildcard src/*.cu)  $(wildcard src/*.cpp)
 
 TARGET = build/main
 
