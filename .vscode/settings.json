@@ -59,6 +59,10 @@
         "vector": "cpp",
         "memory": "cpp",
         "memory_resource": "cpp",
-        "__split_buffer": "cpp"
+        "__split_buffer": "cpp",
+        "ratio": "cpp",
+        "functional": "cpp",
+        "__node_handle": "cpp",
+        "deque": "cpp"
     }
 }

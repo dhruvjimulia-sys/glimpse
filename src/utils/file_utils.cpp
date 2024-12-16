@@ -1,4 +1,4 @@
-#include "../include/file_utils.h"
+#include "file_utils.h"
 
 void readFile(std::string & filename, std::string & fileContents) {
     std::ifstream file(filename);

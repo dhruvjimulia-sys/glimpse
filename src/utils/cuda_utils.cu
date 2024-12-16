@@ -1,5 +1,5 @@
 #include <iostream>
-#include "../include/utils.h"
+#include "cuda_utils.h"
 
 void queryGPUProperties() {
     int deviceCount = 0;
