@@ -14,13 +14,15 @@ __device__ bool getBitAt(uint8_t pixel_value, size_t bit_num) {
     }
 }
 
+// TODO Inline function
 __device__ void waitUntilAvailable(
+    bool* neighbour_shared_values,
     size_t* neighbour_program_counter,
     size_t neighbour_pc,
-    size_t index,
+    int64_t index,
     size_t image_size
 ) {
-    while (index >= 0 && index < image_size && neighbour_program_counter[index] < neighbour_pc);
+    while (neighbour_program_counter[index] != neighbour_pc);
 }
 
 __device__ bool getInstructionInputValue(
@@ -28,7 +30,10 @@ __device__ bool getInstructionInputValue(
     bool *memory,
     uint8_t* image,
     size_t pd_bit,
+    int64_t x,
+    int64_t y,
     size_t image_x_dim,
+    size_t image_y_dim,
     size_t image_size,
     size_t offset,
     size_t* neighbour_program_counter,
@@ -41,27 +46,45 @@ __device__ bool getInstructionInputValue(
         case InputKind::ZeroValue: input_value = false; break;
         case InputKind::PD: input_value = getBitAt(image[offset], pd_bit); pd_bit++; break;
         case InputKind::Up:
-            size_t up_index = offset - image_x_dim;
-            waitUntilAvailable(neighbour_program_counter, neighbour_update_pc, up_index, image_size);
-            input_value = (up_index >= 0) ? neighbour_shared_values[up_index] : 0;
+            if (y - 1 >= 0) {
+                int64_t up_index = offset - image_x_dim;
+                waitUntilAvailable(neighbour_shared_values, neighbour_program_counter, neighbour_update_pc, up_index, image_size);
+                input_value = neighbour_shared_values[up_index];
+            } else {
+                input_value = false;
+            }
             break;
         case InputKind::Down:
-            size_t down_index = offset + image_x_dim;
-            waitUntilAvailable(neighbour_program_counter, neighbour_update_pc, down_index, image_size);
-            input_value = (down_index < image_size) ? neighbour_shared_values[down_index] : 0;
+            if (y + 1 < image_y_dim) {
+                int64_t down_index = offset + image_x_dim;
+                waitUntilAvailable(neighbour_shared_values, neighbour_program_counter, neighbour_update_pc, down_index, image_size);
+                input_value = neighbour_shared_values[down_index];
+            } else {
+                input_value = false;
+            }
             break;
         case InputKind::Right:
-            size_t right_index = offset + 1;
-            waitUntilAvailable(neighbour_program_counter, neighbour_update_pc, right_index, image_size);
-            input_value = (right_index < image_size) ? neighbour_shared_values[right_index] : 0;
+            if (x + 1 < image_x_dim) {
+                int64_t right_index = offset + 1;
+                waitUntilAvailable(neighbour_shared_values, neighbour_program_counter, neighbour_update_pc, right_index, image_size);
+                input_value = neighbour_shared_values[right_index];
+            } else {
+                input_value = false;
+            }
             break;
         case InputKind::Left:
-            size_t left_index = offset - 1;
-            waitUntilAvailable(neighbour_program_counter, neighbour_update_pc, left_index, image_size);
-            input_value = (left_index >= 0) ? neighbour_shared_values[left_index] : 0;
+            if (x - 1 >= 0) {
+                int64_t left_index = offset - 1;
+                waitUntilAvailable(neighbour_shared_values, neighbour_program_counter, neighbour_update_pc, left_index, image_size);
+                input_value = neighbour_shared_values[left_index];
+            } else {
+                input_value = false;
+            }
+            break;
+        default:
             break;
     }
-    return (inputc.negated) ? ~input_value : input_value;
+    return (inputc.negated) ? !input_value : input_value;
 }
 
 __global__ void processingElemKernel(
@@ -81,6 +104,10 @@ __global__ void processingElemKernel(
     size_t offset = x + y * blockDim.x * gridDim.x;
 
     if (offset < image_size) {
+        // image_x, image_y in image space
+        // x, y in thread/block space
+        size_t image_x = offset % image_x_dim;
+        size_t image_y = offset / image_x_dim;
         const size_t MEMORY_SIZE_IN_BITS = 24;
         bool memory[MEMORY_SIZE_IN_BITS];
         for (size_t i = 0; i < MEMORY_SIZE_IN_BITS; i++) memory[i] = false;
@@ -105,7 +132,10 @@ __global__ void processingElemKernel(
                 memory,
                 image,
                 pd_bit,
+                image_x,
+                image_y,
                 image_x_dim,
+                image_y_dim,
                 image_size,
                 offset,
                 neighbour_program_counter,
@@ -117,13 +147,18 @@ __global__ void processingElemKernel(
                 memory,
                 image,
                 pd_bit,
+                image_x,
+                image_y,
                 image_x_dim,
+                image_y_dim,
                 image_size,
                 offset,
                 neighbour_program_counter,
                 neighbour_shared_values,
                 neighbour_update_pc
             );
+
+            // printf("offset: %lu, instruction: %lu, input_one: %d, carryval: %d, input_two: %d\n", offset, i, input_one, carryval, input_two);
 
             const bool sum = (input_one != input_two) != carryval;
             const bool carry = (carryval && (input_one != input_two)) || (input_one && input_two);
@@ -155,14 +190,14 @@ __global__ void processingElemKernel(
 int main() {
     queryGPUProperties();
 
-    std::string programFilename = "programs/prewitt.vis";
+    std::string programFilename = "programs/test.vis";
     std::string imageFilename = "";
 
     // Maximum of value below is 32
     size_t num_threads_per_block_per_dim = 16;
 
-    size_t image_x_dim = 1;
-    size_t image_y_dim = 1;
+    size_t image_x_dim = 2;
+    size_t image_y_dim = 2;
     size_t image_size = image_x_dim * image_y_dim;
 
     // read instructions from file, parse and memcpy to cuda memory
@@ -231,7 +266,21 @@ int main() {
         program_num_outputs
     );
 
-    cudaDeviceSynchronize();
+    HANDLE_ERROR(cudaDeviceSynchronize());
+
+    bool* external_values = (bool *) malloc(external_values_mem_size);
+    HANDLE_ERROR(cudaMemcpy(external_values, dev_external_values, external_values_mem_size, cudaMemcpyDeviceToHost));
+
+    for (size_t y = 0; y < image_y_dim; y++) {
+        for (size_t x = 0; x < image_x_dim; x++) {
+            size_t offset = x + y * image_x_dim;
+            for (int64_t i = program_num_outputs - 1; i >= 0; i--) {
+                printf("%d", external_values[program_num_outputs * offset + i]);
+            }
+            printf(" ");
+        }
+        printf("\n");
+    }
 
     HANDLE_ERROR(cudaFree(dev_instructions));
     HANDLE_ERROR(cudaFree(dev_image));

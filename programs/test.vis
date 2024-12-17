@@ -1,0 +1,5 @@
+neighbour = PD + 0 + 0 (s);
+external = left + ~right + 1 (s);
+external = 0 + ~0 + CR (s);
+external = 0 + ~0 + CR (s);
+end
