@@ -11,6 +11,7 @@ struct Input {
     uint8_t address;
 };
 
+// convert to enum
 struct ResultType {
     char value; // 's' or 'c'
 };
@@ -50,7 +51,6 @@ struct Program {
     size_t instructionCount;
 
     Program(size_t count, Instruction* instr);
-    ~Program();
     __device__ __host__ void print() const;
 };
 

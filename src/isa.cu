@@ -55,10 +55,6 @@ void Instruction::print() const {
 
 Program::Program(size_t count, Instruction* instr) : instructionCount(count), instructions(instr) {}
 
-Program::~Program() {
-    delete[] instructions;
-}
-
 void Program::print() const {
     for (size_t i = 0; i < instructionCount; ++i) {
         instructions[i].print();
@@ -77,7 +73,7 @@ Program Parser::parse() {
         instructionList.push_back(parseInstruction());
         expect(';');
     }
-
+    // TODO fix mem leak
     Program program(instructionList.size(), new Instruction[instructionList.size()]);
     std::copy(instructionList.begin(), instructionList.end(), program.instructions);
     return program;
