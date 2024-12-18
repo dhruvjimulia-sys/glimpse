@@ -166,8 +166,10 @@ __global__ void processingElemKernel(
             // TODO assuming can only be two values
             bool resultvalue = (instruction.resultType.value == 's') ? sum : carry;
 
-            // TODO Only update carry register when carry set to CR?
-            carry_register = carry;
+            // Interesting choice...
+            if (instruction.carry == Carry::CR) {
+                carry_register = carry;
+            }
 
             switch (instruction.result.resultKind) {
                 case ResultKind::Address:
@@ -190,7 +192,7 @@ __global__ void processingElemKernel(
 int main() {
     queryGPUProperties();
 
-    std::string programFilename = "programs/test.vis";
+    std::string programFilename = "programs/edge_detection_one_bit.vis";
     std::string imageFilename = "";
 
     // Maximum of value below is 32
