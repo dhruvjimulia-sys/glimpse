@@ -133,6 +133,8 @@ int main() {
         program_num_outputs
     );
 
+    HANDLE_ERROR(cudaPeekAtLastError());
+
     HANDLE_ERROR(cudaDeviceSynchronize());
 
     bool* external_values = (bool *) malloc(external_values_mem_size);

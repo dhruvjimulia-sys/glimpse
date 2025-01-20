@@ -12,7 +12,7 @@ __device__ bool getBitAt(uint8_t pixel_value, size_t bit_num) {
 // TODO Inline function
 __device__ void waitUntilAvailable(
     bool* neighbour_shared_values,
-    size_t* neighbour_program_counter,
+    volatile size_t* neighbour_program_counter,
     size_t neighbour_pc,
     int64_t index,
     size_t image_size
