@@ -17,6 +17,7 @@ __device__ void waitUntilAvailable(
     int64_t index,
     size_t image_size
 ) {
+    // TODO not equal to incorrect
     while (neighbour_program_counter[index] != neighbour_pc);
 }
 
