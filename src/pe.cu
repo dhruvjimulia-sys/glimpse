@@ -9,7 +9,6 @@ __device__ bool getBitAt(uint8_t pixel_value, size_t bit_num) {
     }
 }
 
-// TODO Inline function
 __device__ void waitUntilAvailable(
     bool* neighbour_shared_values,
     volatile size_t* neighbour_program_counter,
@@ -17,8 +16,7 @@ __device__ void waitUntilAvailable(
     int64_t index,
     size_t image_size
 ) {
-    // TODO not equal to incorrect
-    while (neighbour_program_counter[index] != neighbour_pc);
+    while (neighbour_program_counter[index] < neighbour_pc);
 }
 
 __device__ bool getInstructionInputValue(
@@ -111,7 +109,7 @@ __global__ void processingElemKernel(
         size_t pd_bit = 0;
         size_t output_number = 0;
 
-        // TODO DONT FORGET TO UPDATE
+        // updated when we write to neighbour
         size_t neighbour_update_pc = 0;
 
         for (size_t i = 0; i < num_instructions; i++) {
@@ -159,7 +157,7 @@ __global__ void processingElemKernel(
             const bool sum = (input_one != input_two) != carryval;
             const bool carry = (carryval && (input_one != input_two)) || (input_one && input_two);
 
-            // TODO assuming can only be two values
+            // Assuming can only be two values
             bool resultvalue = (instruction.resultType.value == 's') ? sum : carry;
 
             // Interesting choice...

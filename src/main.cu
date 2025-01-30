@@ -24,6 +24,7 @@ uint8_t* transform_image(const char* filename, int new_dimension, int new_bits) 
         return nullptr;
     }
 
+    // TODO Make resize automatic
     uint8_t* resized_data = img_data;
     
     // (uint8_t*)malloc(new_dimension * new_dimension * channels);
@@ -59,6 +60,7 @@ uint8_t* transform_image(const char* filename, int new_dimension, int new_bits) 
     }
     free(resized_data); 
 
+    // Quantized to required bit depth
     const int max_level = (1 << new_bits) - 1;
     if (max_level > 0) {
         for (int i = 0; i < new_dimension * new_dimension; ++i) {
@@ -69,21 +71,13 @@ uint8_t* transform_image(const char* filename, int new_dimension, int new_bits) 
     return gray_data;
 }
 
-bool *processImage(std::string programFilename, uint8_t* pixels, size_t image_x_dim, size_t image_y_dim) {
-        // read instructions from file, parse and memcpy to cuda memory
-    // TODO make this CUDA memory constant as optimization
-    std::string programText;
-    readFile(programFilename, programText);
-
-    Parser parser(programText);
-    Program program = parser.parse();
-    program.print();
-
+bool *processImage(Program program, uint8_t* pixels, size_t image_x_dim, size_t image_y_dim) {
     size_t program_num_outputs = numOutputs(program);
 
     // Maximum of value below is 32
     size_t num_threads_per_block_per_dim = 16;
-
+    
+    // TODO make this CUDA memory constant as optimization
     Instruction* dev_instructions;
     size_t instructions_mem_size = sizeof(Instruction) * program.instructionCount;
     HANDLE_ERROR(cudaMalloc((void **) &dev_instructions, instructions_mem_size));
@@ -95,13 +89,6 @@ bool *processImage(std::string programFilename, uint8_t* pixels, size_t image_x_
     size_t image_size = image_x_dim * image_y_dim;
     
     size_t image_mem_size = sizeof(uint8_t) * image_size;
-    // uint8_t* pixels = (uint8_t*) malloc(image_mem_size);
-    
-    // // TODO For now, make all pixels one
-    // for (size_t i = 0; i < image_size; i++) {
-    //     pixels[i] = 1;
-    // }
-
 
     uint8_t* dev_image;
 
@@ -126,7 +113,6 @@ bool *processImage(std::string programFilename, uint8_t* pixels, size_t image_x_
     HANDLE_ERROR(cudaMalloc((void **) &dev_external_values, external_values_mem_size));
     HANDLE_ERROR(cudaMemset(dev_external_values, 0, external_values_mem_size));
 
-    // TODO generalize to arbitrary length messages
     dim3 blocks(
         (image_x_dim + num_threads_per_block_per_dim - 1) / num_threads_per_block_per_dim,
         (image_y_dim + num_threads_per_block_per_dim - 1) / num_threads_per_block_per_dim
@@ -152,17 +138,6 @@ bool *processImage(std::string programFilename, uint8_t* pixels, size_t image_x_
     bool* external_values = (bool *) malloc(external_values_mem_size);
     HANDLE_ERROR(cudaMemcpy(external_values, dev_external_values, external_values_mem_size, cudaMemcpyDeviceToHost));
 
-    for (size_t y = 0; y < image_y_dim; y++) {
-        for (size_t x = 0; x < image_x_dim; x++) {
-            size_t offset = x + y * image_x_dim;
-            for (int64_t i = program_num_outputs - 1; i >= 0; i--) {
-                printf("%d", external_values[program_num_outputs * offset + i]);
-            }
-            printf(" ");
-        }
-        printf("\n");
-    }
-
     HANDLE_ERROR(cudaFree(dev_instructions));
     HANDLE_ERROR(cudaFree(dev_image));
     HANDLE_ERROR(cudaFree(dev_neighbour_shared_values));
@@ -179,52 +154,62 @@ int main() {
     std::string programFilename = "programs/edge_detection_one_bit.vis";
     const char *imageFilename = "images/windmill_resized.jpg";
 
-    size_t new_dimension = 128;
+    size_t dimension = 128;
+    size_t num_bits = 1;
 
-    uint8_t* image = transform_image(imageFilename, new_dimension, 1);
-
-    for (size_t i = 0; i < new_dimension; i++) {
-        for (size_t j = 0; j < new_dimension; j++) {
-            printf("%d ", image[i * new_dimension + j]);
-        }
-        printf("\n");
-    }
-
-    // size_t image_x_dim = 20;
-    // size_t image_y_dim = 20;
-
-    // uint8_t pixels[20][20] = {
-    //     {0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0},
-    //     {0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0},
-    //     {0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0},
-    //     {0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0},
-    //     {0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0},
-    //     {0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0},
-    //     {0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0},
-    //     {0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0},
-    //     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0},
-    //     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0},
-    //     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0},
-    //     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0},
-    //     {0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0},
-    //     {0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0},
-    //     {0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0},
-    //     {0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0},
-    //     {0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0},
-    //     {0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0},
-    //     {0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0},
-    //     {0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0},
-    // };
-
-    // uint8_t* pixels_flatten = new uint8_t[image_x_dim * image_y_dim];
-    // for (int i = 0; i < image_y_dim; i++) {
-    //     for (int j = 0; j < image_x_dim; j++) {
-    //         pixels_flatten[i * image_x_dim + j] = pixels[i][j];
+    uint8_t* image = transform_image(imageFilename, dimension, num_bits);
+    
+    // print image
+    // for (size_t i = 0; i < dimension; i++) {
+    //     for (size_t j = 0; j < dimension; j++) {
+    //         printf("%d ", image[i * dimension + j]);
     //     }
+    //     printf("\n");
     // }
 
-    processImage(programFilename, image, new_dimension, new_dimension);
+    std::string programText;
+    readFile(programFilename, programText);
+
+    Parser parser(programText);
+    Program program = parser.parse();
+    program.print();
+
+    size_t program_num_outputs = numOutputs(program);
+
+    std::vector<std::vector<std::vector<bool>>> expected_image(dimension, std::vector<std::vector<bool>>(dimension, std::vector<bool>(program_num_outputs, 0)));
+    for (int i = 0; i < dimension; i++) {
+        for (int j = 0; j < dimension; j++) {
+            size_t val = image[i * dimension + j];
+            expected_image[i][j][0] =
+            (((i - 1 < 0) ? 0 : image[(i - 1) * dimension + j]) != val)
+            || (((i + 1 >= dimension) ? 0 : image[(i + 1) * dimension + j]) != val)
+            || (((j - 1 < 0) ? 0 : image[i * dimension + (j - 1)]) != val)
+            || (((j + 1 >= dimension) ? 0 : image[i * dimension + j + 1]) != val); 
+        }
+    }
+
+    bool* processed_image = processImage(program, image, dimension, dimension);
+
+    bool test_passed = true;
+    for (size_t y = 0; y < dimension; y++) {
+        for (size_t x = 0; x < dimension; x++) {
+            size_t offset = x + y * dimension;
+            for (int64_t i = program_num_outputs - 1; i >= 0; i--) {
+                bool actual_value = processed_image[program_num_outputs * offset + i];
+                if (actual_value != expected_image[y][x][i]) {
+                    test_passed = false;
+                }
+            }
+        }
+    }
+
+    if (test_passed) {
+        std::cout << "Test passed" << std::endl;
+    } else {
+        std::cout << "Test failed" << std::endl;
+    }
 
     free(image);
+    free(program.instructions);
     return EXIT_SUCCESS;
 }

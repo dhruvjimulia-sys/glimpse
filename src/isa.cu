@@ -73,7 +73,6 @@ Program Parser::parse() {
         instructionList.push_back(parseInstruction());
         expect(';');
     }
-    // TODO fix mem leak
     Program program(instructionList.size(), new Instruction[instructionList.size()]);
     std::copy(instructionList.begin(), instructionList.end(), program.instructions);
     return program;
