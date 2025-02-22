@@ -1,4 +1,5 @@
 #include <iostream>
+#include <chrono>
 #include "main.h"
 #include "isa.h"
 #include "pe.h"
@@ -10,6 +11,8 @@
 #include "stb/stb_image.h"
 #define STB_IMAGE_RESIZE_IMPLEMENTATION
 #include "stb/stb_image_resize2.h"
+
+using namespace std::chrono;
 
 
 uint8_t* transform_image(const char* filename, int new_dimension, int new_bits) {
@@ -148,24 +151,8 @@ bool *processImage(Program program, uint8_t* pixels, size_t image_x_dim, size_t 
 }
 
 
-int main() {
-    queryGPUProperties();
-
-    std::string programFilename = "programs/edge_detection_one_bit.vis";
-    const char *imageFilename = "images/windmill_resized.jpg";
-
-    size_t dimension = 128;
-    size_t num_bits = 1;
-
+void testProgram(std::string programFilename, const char *imageFilename, size_t dimension, size_t num_bits, size_t expected_program_num_outputs, std::vector<std::vector<std::vector<bool>>> expected_image) {
     uint8_t* image = transform_image(imageFilename, dimension, num_bits);
-    
-    // print image
-    // for (size_t i = 0; i < dimension; i++) {
-    //     for (size_t j = 0; j < dimension; j++) {
-    //         printf("%d ", image[i * dimension + j]);
-    //     }
-    //     printf("\n");
-    // }
 
     std::string programText;
     readFile(programFilename, programText);
@@ -176,19 +163,35 @@ int main() {
 
     size_t program_num_outputs = numOutputs(program);
 
-    std::vector<std::vector<std::vector<bool>>> expected_image(dimension, std::vector<std::vector<bool>>(dimension, std::vector<bool>(program_num_outputs, 0)));
-    for (int i = 0; i < dimension; i++) {
-        for (int j = 0; j < dimension; j++) {
-            size_t val = image[i * dimension + j];
-            expected_image[i][j][0] =
-            (((i - 1 < 0) ? 0 : image[(i - 1) * dimension + j]) != val)
-            || (((i + 1 >= dimension) ? 0 : image[(i + 1) * dimension + j]) != val)
-            || (((j - 1 < 0) ? 0 : image[i * dimension + (j - 1)]) != val)
-            || (((j + 1 >= dimension) ? 0 : image[i * dimension + j + 1]) != val); 
-        }
-    }
+
+    cudaEvent_t start, stop;
+    float elapsedTime;
+
+    HANDLE_ERROR(cudaEventCreate(&start));
+    HANDLE_ERROR(cudaEventCreate(&stop));
+
+    HANDLE_ERROR(cudaEventRecord(start, 0));
+
+    auto normal_start = std::chrono::high_resolution_clock::now();
 
     bool* processed_image = processImage(program, image, dimension, dimension);
+
+    auto normal_stop = high_resolution_clock::now();
+
+    HANDLE_ERROR(cudaEventRecord(stop, 0));
+    HANDLE_ERROR(cudaEventSynchronize(stop));
+
+    HANDLE_ERROR(cudaEventElapsedTime(&elapsedTime, start, stop));
+
+    std::cout << "Processing time: " << elapsedTime << " ms" << std::endl;
+    float frameRate = 1000.0f / elapsedTime;
+    std::cout << "Frame rate: " << frameRate << " fps" << std::endl;
+
+    auto duration = duration_cast<microseconds>(normal_stop - normal_start);
+    std::cout << "Normal processing time: " << duration.count() << " microseconds" << std::endl;
+    
+    HANDLE_ERROR(cudaEventDestroy(start));
+    HANDLE_ERROR(cudaEventDestroy(stop));
 
     bool test_passed = true;
     for (size_t y = 0; y < dimension; y++) {
@@ -204,12 +207,46 @@ int main() {
     }
 
     if (test_passed) {
-        std::cout << "Test passed" << std::endl;
+        std::cout << programFilename << " test passed" << std::endl;
     } else {
-        std::cout << "Test failed" << std::endl;
+        std::cout << programFilename << " test failed" << std::endl;
     }
 
     free(image);
     free(program.instructions);
+}
+
+
+std::vector<std::vector<std::vector<bool>>> getExpectedImageForOneBitEdgeDetection(const char *imageFilename, size_t num_bits, size_t dimension, size_t expected_program_num_outputs) {
+    uint8_t* image = transform_image(imageFilename, dimension, num_bits);
+    std::vector<std::vector<std::vector<bool>>> expected_image(dimension, std::vector<std::vector<bool>>(dimension, std::vector<bool>(expected_program_num_outputs, 0)));
+    for (int i = 0; i < dimension; i++) {
+        for (int j = 0; j < dimension; j++) {
+            size_t val = image[i * dimension + j];
+            expected_image[i][j][0] =
+            (((i - 1 < 0) ? 0 : image[(i - 1) * dimension + j]) != val)
+            || (((i + 1 >= dimension) ? 0 : image[(i + 1) * dimension + j]) != val)
+            || (((j - 1 < 0) ? 0 : image[i * dimension + (j - 1)]) != val)
+            || (((j + 1 >= dimension) ? 0 : image[i * dimension + j + 1]) != val); 
+        }
+    }
+    return expected_image;
+}
+
+int main() {
+    queryGPUProperties();
+
+    const char *imageFilename = "images/windmill_resized.jpg";
+    size_t dimension = 128;
+
+    testProgram(
+        "programs/edge_detection_one_bit.vis",
+        imageFilename,
+        dimension,
+        1,
+        1,
+        getExpectedImageForOneBitEdgeDetection(imageFilename, 1, dimension, 1)
+    );
+
     return EXIT_SUCCESS;
 }
