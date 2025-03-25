@@ -1,7 +1,0 @@
-[0] = PD + 0 + 0 (s);
-neighbour = [0] + 0 + 0 (s);
-[1] = right + left + 0 (s);
-[2] = up + down + 0 (s);
-[0] = [0] + [2] + 1 (c);
-external = [0] + [1] + 1 (c);
-end

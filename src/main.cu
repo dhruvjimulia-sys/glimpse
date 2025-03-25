@@ -169,7 +169,7 @@ void testProgram(std::string programFilename, const char *imageFilename, size_t 
 
     Parser parser(programText);
     Program program = parser.parse();
-    program.print();
+    // program.print();
 
     size_t program_num_outputs = numOutputs(program);
 
@@ -290,6 +290,39 @@ std::vector<std::vector<std::vector<bool>>> getExpectedImageForOneBitSmoothing(c
     return expected_image;
 }
 
+std::vector<std::vector<std::vector<bool>>> getExpectedImageForPrewittOneBitEdgeDetection(const char *imageFilename, size_t num_bits, size_t dimension, size_t expected_program_num_outputs) {
+    uint8_t* image = transform_image(imageFilename, dimension, num_bits);
+    // Print image
+    // std::cout << "Image:" << std::endl;
+    // for (size_t y = 0; y < dimension; y++) {
+    //     for (size_t x = 0; x < dimension; x++) {
+    //         std::cout << (int)image[y * dimension + x] << " ";
+    //     }
+    //     std::cout << std::endl;
+    // }
+
+    std::cout << "Expected image:" << std::endl;
+    std::vector<std::vector<std::vector<bool>>> expected_image(dimension, std::vector<std::vector<bool>>(dimension, std::vector<bool>(expected_program_num_outputs, 0)));
+    for (int i = 0; i < dimension; i++) {
+        for (int j = 0; j < dimension; j++) {
+            // Prewitt edge detection
+            int8_t gx = ((j - 1 < 0) ? 0 : (int8_t) image[i * dimension + j - 1])
+            + ((j - 1 < 0 || i + 1 >= dimension) ? 0 : (int8_t) image[(i + 1) * dimension + j - 1])
+            + ((j - 1 < 0 || i - 1 < 0) ? 0 : (int8_t) image[(i - 1) * dimension + j - 1])
+            - ((j + 1 >= dimension) ? 0 : (int8_t) image[i * dimension + j + 1])
+            - (((j + 1 >= dimension || i + 1 >= dimension) ? 0 : (int8_t) image[(i + 1) * dimension + j + 1]))
+            - (((j + 1 >= dimension || i - 1 < 0) ? 0 : (int8_t) image[(i - 1) * dimension + j + 1]));
+            
+            for (int k = 0; k < expected_program_num_outputs; k++) {
+                expected_image[i][j][k] = gx & (1 << k);
+            }
+            // std::cout << static_cast<int16_t>(gx) << " ";
+        }
+        // std::cout << std::endl;
+    }
+    return expected_image;
+}
+
 int main() {
     queryGPUProperties();
 
@@ -321,6 +354,15 @@ int main() {
         1,
         1,
         getExpectedImageForOneBitSmoothing(imageFilename, 1, dimension, 1)
+    );
+
+    testProgram(
+        "programs/prewitt_edge_detection_one_bit.vis",
+        imageFilename,
+        dimension,
+        1,
+        3,
+        getExpectedImageForPrewittOneBitEdgeDetection(imageFilename, 1, dimension, 3)
     );
 
     return EXIT_SUCCESS;
