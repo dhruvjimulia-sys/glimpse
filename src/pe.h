@@ -15,5 +15,6 @@ __global__ void processingElemKernel(
     size_t image_size,
     size_t image_x_dim,
     size_t image_y_dim,
-    size_t num_outputs
+    size_t num_outputs,
+    size_t num_shared_neighbours
 );

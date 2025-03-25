@@ -32,7 +32,9 @@ __device__ bool getInstructionInputValue(
     size_t offset,
     size_t* neighbour_program_counter,
     bool* neighbour_shared_values,
-    size_t neighbour_update_pc
+    size_t neighbour_update_pc,
+    size_t num_shared_neighbours,
+    size_t shared_neighbour_value
 ) {
     bool input_value = false;
     switch (inputc.input.inputKind) {
@@ -43,7 +45,7 @@ __device__ bool getInstructionInputValue(
             if (y - 1 >= 0) {
                 int64_t up_index = offset - image_x_dim;
                 waitUntilAvailable(neighbour_shared_values, neighbour_program_counter, neighbour_update_pc, up_index, image_size);
-                input_value = neighbour_shared_values[up_index];
+                input_value = neighbour_shared_values[up_index * num_shared_neighbours + shared_neighbour_value - 1];
             } else {
                 input_value = false;
             }
@@ -52,7 +54,7 @@ __device__ bool getInstructionInputValue(
             if (y + 1 < image_y_dim) {
                 int64_t down_index = offset + image_x_dim;
                 waitUntilAvailable(neighbour_shared_values, neighbour_program_counter, neighbour_update_pc, down_index, image_size);
-                input_value = neighbour_shared_values[down_index];
+                input_value = neighbour_shared_values[down_index * num_shared_neighbours + shared_neighbour_value - 1];
             } else {
                 input_value = false;
             }
@@ -61,7 +63,7 @@ __device__ bool getInstructionInputValue(
             if (x + 1 < image_x_dim) {
                 int64_t right_index = offset + 1;
                 waitUntilAvailable(neighbour_shared_values, neighbour_program_counter, neighbour_update_pc, right_index, image_size);
-                input_value = neighbour_shared_values[right_index];
+                input_value = neighbour_shared_values[right_index * num_shared_neighbours + shared_neighbour_value - 1];
             } else {
                 input_value = false;
             }
@@ -70,7 +72,7 @@ __device__ bool getInstructionInputValue(
             if (x - 1 >= 0) {
                 int64_t left_index = offset - 1;
                 waitUntilAvailable(neighbour_shared_values, neighbour_program_counter, neighbour_update_pc, left_index, image_size);
-                input_value = neighbour_shared_values[left_index];
+                input_value = neighbour_shared_values[left_index * num_shared_neighbours + shared_neighbour_value - 1];
             } else {
                 input_value = false;
             }
@@ -91,7 +93,8 @@ __global__ void processingElemKernel(
     size_t image_size,
     size_t image_x_dim,
     size_t image_y_dim,
-    size_t num_outputs
+    size_t num_outputs,
+    size_t num_shared_neighbours
 ) {
     size_t x = threadIdx.x + blockIdx.x * blockDim.x;
     size_t y = threadIdx.y + blockIdx.y * blockDim.y;
@@ -111,6 +114,9 @@ __global__ void processingElemKernel(
 
         // updated when we write to neighbour
         size_t neighbour_update_pc = 0;
+
+        // shared_neighbour_value is the index of the shared neighbour value
+        size_t shared_neighbour_value = 0;
 
         for (size_t i = 0; i < num_instructions; i++) {
             const Instruction instruction = instructions[i];
@@ -134,7 +140,9 @@ __global__ void processingElemKernel(
                 offset,
                 neighbour_program_counter,
                 neighbour_shared_values,
-                neighbour_update_pc
+                neighbour_update_pc,
+                num_shared_neighbours,
+                shared_neighbour_value
             );
             bool input_two = getInstructionInputValue(
                 instruction.input2,
@@ -149,7 +157,9 @@ __global__ void processingElemKernel(
                 offset,
                 neighbour_program_counter,
                 neighbour_shared_values,
-                neighbour_update_pc
+                neighbour_update_pc,
+                num_shared_neighbours,
+                shared_neighbour_value
             );
 
             // printf("offset: %lu, instruction: %lu, input_one: %d, carryval: %d, input_two: %d\n", offset, i, input_one, carryval, input_two);
@@ -171,7 +181,8 @@ __global__ void processingElemKernel(
                     break;
                 case ResultKind::Neighbour:
                     neighbour_update_pc = pc;
-                    neighbour_shared_values[offset] = resultvalue;
+                    neighbour_shared_values[offset * num_shared_neighbours + shared_neighbour_value] = resultvalue;
+                    shared_neighbour_value++;
                     neighbour_program_counter[offset] = pc;
                     break;
                 case ResultKind::External:

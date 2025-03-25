@@ -76,6 +76,7 @@ uint8_t* transform_image(const char* filename, int new_dimension, int new_bits) 
 
 bool *processImage(Program program, uint8_t* pixels, size_t image_x_dim, size_t image_y_dim) {
     size_t program_num_outputs = numOutputs(program);
+    size_t program_num_shared_neighbours = numSharedNeighbours(program);
 
     // Maximum of value below is 32
     size_t num_threads_per_block_per_dim = 16;
@@ -100,7 +101,7 @@ bool *processImage(Program program, uint8_t* pixels, size_t image_x_dim, size_t 
 
     // neighbour
     bool* dev_neighbour_shared_values;
-    size_t neighbour_shared_mem_size = sizeof(bool) * image_size;
+    size_t neighbour_shared_mem_size = sizeof(bool) * image_size * program_num_shared_neighbours;
     HANDLE_ERROR(cudaMalloc((void **) &dev_neighbour_shared_values, neighbour_shared_mem_size));
     HANDLE_ERROR(cudaMemset(dev_neighbour_shared_values, 0, neighbour_shared_mem_size));
 
@@ -131,7 +132,8 @@ bool *processImage(Program program, uint8_t* pixels, size_t image_x_dim, size_t 
         image_size,
         image_x_dim,
         image_y_dim,
-        program_num_outputs
+        program_num_outputs,
+        program_num_shared_neighbours
     );
 
     HANDLE_ERROR(cudaPeekAtLastError());
