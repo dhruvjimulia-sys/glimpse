@@ -154,6 +154,16 @@ bool *processImage(Program program, uint8_t* pixels, size_t image_x_dim, size_t 
 void testProgram(std::string programFilename, const char *imageFilename, size_t dimension, size_t num_bits, size_t expected_program_num_outputs, std::vector<std::vector<std::vector<bool>>> expected_image) {
     uint8_t* image = transform_image(imageFilename, dimension, num_bits);
 
+    // Print image
+    // std::cout << "Image:" << std::endl;
+    // for (size_t y = 0; y < dimension; y++) {
+    //     for (size_t x = 0; x < dimension; x++) {
+    //         std::cout << (int)image[y * dimension + x] << " ";
+    //     }
+    //     std::cout << std::endl;
+    // }
+
+
     std::string programText;
     readFile(programFilename, programText);
 
@@ -200,11 +210,25 @@ void testProgram(std::string programFilename, const char *imageFilename, size_t 
             for (int64_t i = program_num_outputs - 1; i >= 0; i--) {
                 bool actual_value = processed_image[program_num_outputs * offset + i];
                 if (actual_value != expected_image[y][x][i]) {
+                    std::cout << "Mismatch at (" << x << ", " << y << ")[" << i << "]: " << actual_value << " != " << expected_image[y][x][i] << std::endl;
                     test_passed = false;
                 }
             }
         }
     }
+
+    // Print external values
+    // std::cout << "External values:" << std::endl;
+    // for (size_t y = 0; y < dimension; y++) {
+    //     for (size_t x = 0; x < dimension; x++) {
+    //         size_t offset = x + y * dimension;
+    //         for (size_t i = 0; i < program_num_outputs; i++) {
+    //             std::cout << processed_image[program_num_outputs * offset + i];
+    //         }
+    //         std::cout << " ";
+    //     }
+    //     std::cout << std::endl;
+    // }
 
     if (test_passed) {
         std::cout << programFilename << " test passed" << std::endl;
@@ -233,6 +257,39 @@ std::vector<std::vector<std::vector<bool>>> getExpectedImageForOneBitEdgeDetecti
     return expected_image;
 }
 
+std::vector<std::vector<std::vector<bool>>> getExpectedImageForOneBitThinning(const char *imageFilename, size_t num_bits, size_t dimension, size_t expected_program_num_outputs) {
+    uint8_t* image = transform_image(imageFilename, dimension, num_bits);
+    std::vector<std::vector<std::vector<bool>>> expected_image(dimension, std::vector<std::vector<bool>>(dimension, std::vector<bool>(expected_program_num_outputs, 0)));
+    for (int i = 0; i < dimension; i++) {
+        for (int j = 0; j < dimension; j++) {
+            size_t count = 
+            ((i - 1 < 0) ? 0 : image[(i - 1) * dimension + j])
+            + ((i + 1 >= dimension) ? 0 : image[(i + 1) * dimension + j])
+            + ((j - 1 < 0) ? 0 : image[i * dimension + j - 1])
+            + ((j + 1 >= dimension) ? 0 : image[i * dimension + j + 1]);
+            expected_image[i][j][0] = (count == 1 || count == 2) ? 0 : image[i * dimension + j];
+        }
+    }
+    return expected_image;
+}
+
+std::vector<std::vector<std::vector<bool>>> getExpectedImageForOneBitSmoothing(const char *imageFilename, size_t num_bits, size_t dimension, size_t expected_program_num_outputs) {
+    uint8_t* image = transform_image(imageFilename, dimension, num_bits);
+    std::vector<std::vector<std::vector<bool>>> expected_image(dimension, std::vector<std::vector<bool>>(dimension, std::vector<bool>(expected_program_num_outputs, 0)));
+    for (int i = 0; i < dimension; i++) {
+        for (int j = 0; j < dimension; j++) {
+            size_t count = 
+            ((i - 1 < 0) ? 0 : image[(i - 1) * dimension + j])
+            + ((i + 1 >= dimension) ? 0 : image[(i + 1) * dimension + j])
+            + ((j - 1 < 0) ? 0 : image[i * dimension + j - 1])
+            + ((j + 1 >= dimension) ? 0 : image[i * dimension + j + 1])
+            + image[i * dimension + j];
+            expected_image[i][j][0] = count >= 3;
+        }
+    }
+    return expected_image;
+}
+
 int main() {
     queryGPUProperties();
 
@@ -246,6 +303,24 @@ int main() {
         1,
         1,
         getExpectedImageForOneBitEdgeDetection(imageFilename, 1, dimension, 1)
+    );
+
+    testProgram(
+        "programs/thinning_one_bit.vis",
+        imageFilename,
+        dimension,
+        1,
+        1,
+        getExpectedImageForOneBitThinning(imageFilename, 1, dimension, 1)
+    );
+
+    testProgram(
+        "programs/smoothing_one_bit.vis",
+        imageFilename,
+        dimension,
+        1,
+        1,
+        getExpectedImageForOneBitSmoothing(imageFilename, 1, dimension, 1)
     );
 
     return EXIT_SUCCESS;
