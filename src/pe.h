@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cuda/atomic>
 #include "isa.h"
 #include "utils/cuda_utils.h"
 #include "utils/file_utils.h"
@@ -10,7 +11,7 @@ __global__ void processingElemKernel(
     size_t num_instructions,
     uint8_t* image,
     bool* neighbour_shared_values,
-    size_t* neighbour_program_counter,
+    cuda::atomic<int, cuda::thread_scope_device>* neighbour_program_counter,
     bool* external_values,
     size_t image_size,
     size_t image_x_dim,

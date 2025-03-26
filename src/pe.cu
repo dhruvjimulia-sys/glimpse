@@ -11,12 +11,12 @@ __device__ bool getBitAt(uint8_t pixel_value, size_t bit_num) {
 
 __device__ void waitUntilAvailable(
     bool* neighbour_shared_values,
-    volatile size_t* neighbour_program_counter,
+    cuda::atomic<int, cuda::thread_scope_device>* neighbour_program_counter,
     size_t neighbour_pc,
     int64_t index,
     size_t image_size
 ) {
-    while (neighbour_program_counter[index] < neighbour_pc);
+    while (neighbour_program_counter[index].load(cuda::std::memory_order_acquire) < neighbour_pc);
 }
 
 __device__ bool getInstructionInputValue(
@@ -30,7 +30,7 @@ __device__ bool getInstructionInputValue(
     size_t image_y_dim,
     size_t image_size,
     size_t offset,
-    size_t* neighbour_program_counter,
+    cuda::atomic<int, cuda::thread_scope_device>* neighbour_program_counter,
     bool* neighbour_shared_values,
     size_t neighbour_update_pc,
     size_t num_shared_neighbours,
@@ -88,7 +88,7 @@ __global__ void processingElemKernel(
     size_t num_instructions,
     uint8_t* image,
     bool* neighbour_shared_values,
-    size_t* neighbour_program_counter,
+    cuda::atomic<int, cuda::thread_scope_device>* neighbour_program_counter,
     bool* external_values,
     size_t image_size,
     size_t image_x_dim,
@@ -190,7 +190,7 @@ __global__ void processingElemKernel(
                     neighbour_update_pc = pc;
                     neighbour_shared_values[offset * num_shared_neighbours + shared_neighbour_value] = resultvalue;
                     shared_neighbour_value++;
-                    neighbour_program_counter[offset] = pc;
+                    neighbour_program_counter[offset].store(pc, cuda::std::memory_order_release);
                     break;
                 case ResultKind::External:
                     external_values[num_outputs * offset + output_number] = resultvalue;
