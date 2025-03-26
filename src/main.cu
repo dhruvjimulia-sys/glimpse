@@ -339,7 +339,6 @@ std::vector<std::vector<std::vector<bool>>> getExpectedImageForOneBitSmoothing(c
     return expected_image;
 }
 
-
 std::vector<std::vector<std::vector<bool>>> getExpectedImageForPrewittEdgeDetection(const char *imageFilename, size_t num_bits, size_t dimension, size_t expected_program_num_outputs) {
     uint8_t* image = transform_image(imageFilename, dimension, num_bits);
     std::vector<std::vector<std::vector<bool>>> expected_image(dimension, std::vector<std::vector<bool>>(dimension, std::vector<bool>(expected_program_num_outputs, 0)));
@@ -354,7 +353,7 @@ std::vector<std::vector<std::vector<bool>>> getExpectedImageForPrewittEdgeDetect
             - (((j + 1 >= dimension || i - 1 < 0) ? 0 : (int16_t) image[(i - 1) * dimension + j + 1]));
             
             for (size_t k = 0; k < expected_program_num_outputs; k++) {
-                expected_image[i][j][k] = gx & (1 << k);
+                expected_image[i][j][k] = (gx & (1 << k)) >> k;
             }
         }
     }
@@ -363,13 +362,34 @@ std::vector<std::vector<std::vector<bool>>> getExpectedImageForPrewittEdgeDetect
     // std::cout << "Expected image:" << std::endl;
     // for (size_t y = 0; y < dimension; y++) {
     //     for (size_t x = 0; x < dimension; x++) {
+    //         uint16_t val = 0;
     //         for (size_t i = 0; i < expected_program_num_outputs; i++) {
-    //             std::cout << expected_image[y][x][i];
+    //             val |= expected_image[y][x][i] << i;
     //         }
-    //         std::cout << " ";
+    //         int16_t result = (val & 0x100) ? (int16_t) (val | 0xFE00) : (int16_t) val;
+    //         std::cout << result << " ";
     //     }
     //     std::cout << std::endl;
     // }
+
+    return expected_image;
+}
+
+std::vector<std::vector<std::vector<bool>>> getExpectedImageForMultiBitSmoothing(const char *imageFilename, size_t num_bits, size_t dimension, size_t expected_program_num_outputs) {
+    uint8_t* image = transform_image(imageFilename, dimension, num_bits);
+    std::vector<std::vector<std::vector<bool>>> expected_image(dimension, std::vector<std::vector<bool>>(dimension, std::vector<bool>(expected_program_num_outputs, 0)));
+    for (int i = 0; i < dimension; i++) {
+        for (int j = 0; j < dimension; j++) {
+            uint16_t result = (((j - 1 < 0) ? 0 : (uint16_t) image[i * dimension + j - 1])
+            + ((i + 1 >= dimension) ? 0 : (uint16_t) image[(i + 1) * dimension + j])
+            + ((i - 1 < 0) ? 0 : (uint16_t) image[(i - 1) * dimension + j])
+            + ((j + 1 >= dimension) ? 0 : (uint16_t) image[i * dimension + j + 1])) / 4;
+            
+            for (size_t k = 0; k < expected_program_num_outputs; k++) {
+                expected_image[i][j][k] = (result & (1 << k)) >> k;
+            }
+        }
+    }
 
     return expected_image;
 }
@@ -441,6 +461,15 @@ int main() {
         6,
         9,
         getExpectedImageForPrewittEdgeDetection(imageFilename, 6, dimension, 9)
+    );
+
+    testProgram(
+        "programs/smoothing_six_bits.vis",
+        imageFilename,
+        dimension,
+        6,
+        6,
+        getExpectedImageForMultiBitSmoothing(imageFilename, 6, dimension, 6)
     );
 
     return EXIT_SUCCESS;
