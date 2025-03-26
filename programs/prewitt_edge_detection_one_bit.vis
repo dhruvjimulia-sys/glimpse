@@ -1,17 +1,17 @@
 neighbour = PD + 0 + 0 (s);
-[0] = ~0 + ~0 + CR (s);
-[2] = left + ~right + CR (s);
+[2] = ~0 + ~0 + CR (s);
+[0] = left + ~right + CR (s);
 [1] = 0 + ~0 + CR (s);
-[0] = 0 + ~0 + CR (s);
+[2] = 0 + ~0 + CR (s);
 [3] = 0 + 0 + CR (s);
-neighbour = [2] + 0 + 0 (s);
-[5] = up + down + CR (s);
-neighbour = [1] + 0 + 0 (s);
-[4] = up + down + CR (s);
 neighbour = [0] + 0 + 0 (s);
 [3] = up + down + CR (s);
+neighbour = [1] + 0 + 0 (s);
+[4] = up + down + CR (s);
+neighbour = [2] + 0 + 0 (s);
+[5] = up + down + CR (s);
 [6] = 0 + 0 + CR (s);
-external = [2] + [5] + CR (s);
-external = [1] + [4] + CR (s);
 external = [0] + [3] + CR (s);
+external = [1] + [4] + CR (s);
+external = [2] + [5] + CR (s);
 end
