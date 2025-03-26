@@ -94,7 +94,9 @@ __global__ void processingElemKernel(
     size_t image_x_dim,
     size_t image_y_dim,
     size_t num_outputs,
-    size_t num_shared_neighbours
+    size_t num_shared_neighbours,
+    size_t* debug_output,
+    size_t num_debug_outputs
 ) {
     size_t x = threadIdx.x + blockIdx.x * blockDim.x;
     size_t y = threadIdx.y + blockIdx.y * blockDim.y;
@@ -162,7 +164,12 @@ __global__ void processingElemKernel(
                 shared_neighbour_value
             );
 
-            // printf("offset: %lu, instruction: %lu, input_one: %d, carryval: %d, input_two: %d\n", offset, i, input_one, carryval, input_two);
+            // if (image_x < 32 && image_y < 32) {
+            //     printf("offset: %lu, instruction: %lu, input_one: %d, carryval: %d, input_two: %d\n", offset, i, input_one, carryval, input_two);
+            // }
+            debug_output[(offset * num_instructions + i) * num_debug_outputs] = input_one;
+            debug_output[(offset * num_instructions + i) * num_debug_outputs + 1] = input_two;
+            debug_output[(offset * num_instructions + i) * num_debug_outputs + 2] = carryval;
 
             const bool sum = (input_one != input_two) != carryval;
             const bool carry = (carryval && (input_one != input_two)) || (input_one && input_two);

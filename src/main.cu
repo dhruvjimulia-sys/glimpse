@@ -99,6 +99,12 @@ bool *processImage(Program program, uint8_t* pixels, size_t image_x_dim, size_t 
     HANDLE_ERROR(cudaMalloc((void **) &dev_image, image_mem_size));
     HANDLE_ERROR(cudaMemcpy(dev_image, pixels, image_mem_size, cudaMemcpyHostToDevice));
 
+    // debugging output
+    size_t* dev_debug_output;
+    size_t num_debug_outputs = 3;
+    HANDLE_ERROR(cudaMalloc((void **) &dev_debug_output, sizeof(size_t) * image_size * program.instructionCount * num_debug_outputs));
+    HANDLE_ERROR(cudaMemset(dev_debug_output, 0, sizeof(size_t) * image_size * program.instructionCount * num_debug_outputs));
+
     // neighbour
     bool* dev_neighbour_shared_values;
     size_t neighbour_shared_mem_size = sizeof(bool) * image_size * program_num_shared_neighbours;
@@ -133,7 +139,9 @@ bool *processImage(Program program, uint8_t* pixels, size_t image_x_dim, size_t 
         image_x_dim,
         image_y_dim,
         program_num_outputs,
-        program_num_shared_neighbours
+        program_num_shared_neighbours,
+        dev_debug_output,
+        num_debug_outputs
     );
 
     HANDLE_ERROR(cudaPeekAtLastError());
@@ -143,11 +151,26 @@ bool *processImage(Program program, uint8_t* pixels, size_t image_x_dim, size_t 
     bool* external_values = (bool *) malloc(external_values_mem_size);
     HANDLE_ERROR(cudaMemcpy(external_values, dev_external_values, external_values_mem_size, cudaMemcpyDeviceToHost));
 
+    // debugging output
+    size_t* debug_output = (size_t *) malloc(sizeof(size_t) * image_size * program.instructionCount * num_debug_outputs);
+    HANDLE_ERROR(cudaMemcpy(debug_output, dev_debug_output, sizeof(size_t) * image_size * program.instructionCount * num_debug_outputs, cudaMemcpyDeviceToHost));
+    for (size_t i = 0; i < image_size; i++) {
+        for (size_t j = 0; j < program.instructionCount; j++) {
+            size_t offset = i * program.instructionCount * num_debug_outputs + j * num_debug_outputs;
+            std::cout << "Instruction " << j << " at " << i << ": ";
+            for (size_t k = 0; k < num_debug_outputs; k++) {
+                std::cout << debug_output[offset + k] << " ";
+            }
+            std::cout << std::endl;
+        }
+    }
+
     HANDLE_ERROR(cudaFree(dev_instructions));
     HANDLE_ERROR(cudaFree(dev_image));
     HANDLE_ERROR(cudaFree(dev_neighbour_shared_values));
     HANDLE_ERROR(cudaFree(dev_neighbour_program_counter));
     HANDLE_ERROR(cudaFree(dev_external_values));
+    HANDLE_ERROR(cudaFree(dev_debug_output));
 
     return external_values;
 }
@@ -157,13 +180,19 @@ void testProgram(std::string programFilename, const char *imageFilename, size_t 
     uint8_t* image = transform_image(imageFilename, dimension, num_bits);
 
     // Print image
-    // std::cout << "Image:" << std::endl;
-    // for (size_t y = 0; y < dimension; y++) {
-    //     for (size_t x = 0; x < dimension; x++) {
-    //         std::cout << (int)image[y * dimension + x] << " ";
-    //     }
-    //     std::cout << std::endl;
-    // }
+    std::cout << "Image:" << std::endl;
+    for (size_t y = 0; y < dimension; y++) {
+        for (size_t x = 0; x < dimension; x++) {
+            std::cout << (int) image[y * dimension + x] << " ";
+        }
+        std::cout << std::endl;
+    }
+
+    for (size_t y = 0; y < dimension; y++) {
+        for (size_t x = 0; x < dimension; x++) {
+            std::cout << "offset " << x * dimension + y << ": " << (int) image[y * dimension + x] << std::endl;
+        }
+    }
 
 
     std::string programText;
@@ -328,9 +357,27 @@ std::vector<std::vector<std::vector<bool>>> getExpectedImageForPrewittOneBitEdge
 int main() {
     queryGPUProperties();
 
-    const char *imageFilename = "images/windmill_resized.jpg";
-    size_t dimension = 128;
+    const char *imageFilename = "images/windmill.jpg";
+    size_t dimension = 1700;
 
+    uint8_t* image = transform_image(imageFilename, dimension, 1);
+
+    // Print image
+    std::cout << "Image:" << std::endl;
+    for (size_t y = 0; y < dimension; y++) {
+        for (size_t x = 0; x < dimension; x++) {
+            std::cout << (int) image[y * dimension + x] << " ";
+        }
+        std::cout << std::endl;
+    }
+
+    for (size_t y = 0; y < dimension; y++) {
+        for (size_t x = 0; x < dimension; x++) {
+            std::cout << "offset " << x * dimension + y << ": " << (int) image[y * dimension + x] << std::endl;
+        }
+    }
+
+    /*
     testProgram(
         "programs/edge_detection_one_bit.vis",
         imageFilename,
@@ -339,7 +386,9 @@ int main() {
         1,
         getExpectedImageForOneBitEdgeDetection(imageFilename, 1, dimension, 1)
     );
+    */
 
+    /*
     testProgram(
         "programs/thinning_one_bit.vis",
         imageFilename,
@@ -366,6 +415,7 @@ int main() {
         3,
         getExpectedImageForPrewittOneBitEdgeDetection(imageFilename, 1, dimension, 3)
     );
+    */
 
     return EXIT_SUCCESS;
 }
