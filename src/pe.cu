@@ -5,7 +5,7 @@ __device__ bool getBitAt(uint8_t pixel_value, size_t bit_num) {
         printf("PD called more times than number of bits in image");
         return 0;
     } else {
-        return pixel_value & (1 << bit_num); 
+        return (pixel_value & (1 << bit_num)) >> bit_num; 
     }
 }
 
@@ -23,7 +23,7 @@ __device__ bool getInstructionInputValue(
     InputC inputc,
     bool *memory,
     uint8_t* image,
-    size_t pd_bit,
+    size_t* pd_bit,
     int64_t x,
     int64_t y,
     size_t image_x_dim,
@@ -40,7 +40,10 @@ __device__ bool getInstructionInputValue(
     switch (inputc.input.inputKind) {
         case InputKind::Address: input_value = memory[inputc.input.address]; break;
         case InputKind::ZeroValue: input_value = false; break;
-        case InputKind::PD: input_value = getBitAt(image[offset], pd_bit); pd_bit++; break;
+        case InputKind::PD:
+            input_value = getBitAt(image[offset], *pd_bit);
+            *pd_bit = *pd_bit + 1;
+            break;
         case InputKind::Up:
             if (y - 1 >= 0) {
                 int64_t up_index = offset - image_x_dim;
@@ -133,7 +136,7 @@ __global__ void processingElemKernel(
                 instruction.input1,
                 memory,
                 image,
-                pd_bit,
+                &pd_bit,
                 image_x,
                 image_y,
                 image_x_dim,
@@ -150,7 +153,7 @@ __global__ void processingElemKernel(
                 instruction.input2,
                 memory,
                 image,
-                pd_bit,
+                &pd_bit,
                 image_x,
                 image_y,
                 image_x_dim,

@@ -185,11 +185,23 @@ bool *processImage(Program program, uint8_t* pixels, size_t image_x_dim, size_t 
 void testProgram(std::string programFilename, const char *imageFilename, size_t dimension, size_t num_bits, size_t expected_program_num_outputs, std::vector<std::vector<std::vector<bool>>> expected_image) {
     uint8_t* image = transform_image(imageFilename, dimension, num_bits);
 
-    // Print image
-    // std::cout << "Image:" << std::endl;
+    // Print image in binary form
+    // std::cout << "Image (binary):" << std::endl;
     // for (size_t y = 0; y < dimension; y++) {
     //     for (size_t x = 0; x < dimension; x++) {
-    //         std::cout << (int) image[y * dimension + x] << " ";
+    //         for (size_t i = 0; i < num_bits; i++) {
+    //             size_t val = (image[y * dimension + x] & (1 << i)) >> i;
+    //             std::cout << val;
+    //         }
+    //         std::cout << " ";
+    //     }
+    //     std::cout << std::endl;
+    // }
+
+    // Print image
+    // for (size_t y = 0; y < dimension; y++) {
+    //     for (size_t x = 0; x < dimension; x++) {
+    //         std::cout << (uint16_t) image[y * dimension + x] << " ";
     //     }
     //     std::cout << std::endl;
     // }
@@ -348,11 +360,46 @@ std::vector<std::vector<std::vector<bool>>> getExpectedImageForPrewittOneBitEdge
     return expected_image;
 }
 
+// TODO same function but replace int8_t with int16_t?
+std::vector<std::vector<std::vector<bool>>> getExpectedImageForPrewittSixBitEdgeDetection(const char *imageFilename, size_t num_bits, size_t dimension, size_t expected_program_num_outputs) {
+    uint8_t* image = transform_image(imageFilename, dimension, num_bits);
+    std::vector<std::vector<std::vector<bool>>> expected_image(dimension, std::vector<std::vector<bool>>(dimension, std::vector<bool>(expected_program_num_outputs, 0)));
+    for (int i = 0; i < dimension; i++) {
+        for (int j = 0; j < dimension; j++) {
+            // Prewitt edge detection
+            int16_t gx = ((j - 1 < 0) ? 0 : (int16_t) image[i * dimension + j - 1])
+            + ((j - 1 < 0 || i + 1 >= dimension) ? 0 : (int16_t) image[(i + 1) * dimension + j - 1])
+            + ((j - 1 < 0 || i - 1 < 0) ? 0 : (int16_t) image[(i - 1) * dimension + j - 1])
+            - ((j + 1 >= dimension) ? 0 : (int16_t) image[i * dimension + j + 1])
+            - (((j + 1 >= dimension || i + 1 >= dimension) ? 0 : (int16_t) image[(i + 1) * dimension + j + 1]))
+            - (((j + 1 >= dimension || i - 1 < 0) ? 0 : (int16_t) image[(i - 1) * dimension + j + 1]));
+            
+            for (size_t k = 0; k < expected_program_num_outputs; k++) {
+                expected_image[i][j][k] = gx & (1 << k);
+            }
+        }
+    }
+
+    // Print expected image
+    // std::cout << "Expected image:" << std::endl;
+    // for (size_t y = 0; y < dimension; y++) {
+    //     for (size_t x = 0; x < dimension; x++) {
+    //         for (size_t i = 0; i < expected_program_num_outputs; i++) {
+    //             std::cout << expected_image[y][x][i];
+    //         }
+    //         std::cout << " ";
+    //     }
+    //     std::cout << std::endl;
+    // }
+
+    return expected_image;
+}
+
 int main() {
     queryGPUProperties();
 
-    const char *imageFilename = "images/windmill.jpg";
-    size_t dimension = 1700;
+    const char *imageFilename = "images/windmill_128.jpg";
+    size_t dimension = 128;
 
     uint8_t* image = transform_image(imageFilename, dimension, 1);
 
@@ -406,6 +453,15 @@ int main() {
         1,
         3,
         getExpectedImageForPrewittOneBitEdgeDetection(imageFilename, 1, dimension, 3)
+    );
+
+    testProgram(
+        "programs/prewitt_edge_detection_six_bits.vis",
+        imageFilename,
+        dimension,
+        6,
+        9,
+        getExpectedImageForPrewittSixBitEdgeDetection(imageFilename, 6, dimension, 9)
     );
 
     return EXIT_SUCCESS;
