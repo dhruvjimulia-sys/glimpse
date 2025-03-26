@@ -339,29 +339,8 @@ std::vector<std::vector<std::vector<bool>>> getExpectedImageForOneBitSmoothing(c
     return expected_image;
 }
 
-std::vector<std::vector<std::vector<bool>>> getExpectedImageForPrewittOneBitEdgeDetection(const char *imageFilename, size_t num_bits, size_t dimension, size_t expected_program_num_outputs) {
-    uint8_t* image = transform_image(imageFilename, dimension, num_bits);
-    std::vector<std::vector<std::vector<bool>>> expected_image(dimension, std::vector<std::vector<bool>>(dimension, std::vector<bool>(expected_program_num_outputs, 0)));
-    for (int i = 0; i < dimension; i++) {
-        for (int j = 0; j < dimension; j++) {
-            // Prewitt edge detection
-            int8_t gx = ((j - 1 < 0) ? 0 : (int8_t) image[i * dimension + j - 1])
-            + ((j - 1 < 0 || i + 1 >= dimension) ? 0 : (int8_t) image[(i + 1) * dimension + j - 1])
-            + ((j - 1 < 0 || i - 1 < 0) ? 0 : (int8_t) image[(i - 1) * dimension + j - 1])
-            - ((j + 1 >= dimension) ? 0 : (int8_t) image[i * dimension + j + 1])
-            - (((j + 1 >= dimension || i + 1 >= dimension) ? 0 : (int8_t) image[(i + 1) * dimension + j + 1]))
-            - (((j + 1 >= dimension || i - 1 < 0) ? 0 : (int8_t) image[(i - 1) * dimension + j + 1]));
-            
-            for (int k = 0; k < expected_program_num_outputs; k++) {
-                expected_image[i][j][k] = gx & (1 << k);
-            }
-        }
-    }
-    return expected_image;
-}
 
-// TODO same function but replace int8_t with int16_t?
-std::vector<std::vector<std::vector<bool>>> getExpectedImageForPrewittSixBitEdgeDetection(const char *imageFilename, size_t num_bits, size_t dimension, size_t expected_program_num_outputs) {
+std::vector<std::vector<std::vector<bool>>> getExpectedImageForPrewittEdgeDetection(const char *imageFilename, size_t num_bits, size_t dimension, size_t expected_program_num_outputs) {
     uint8_t* image = transform_image(imageFilename, dimension, num_bits);
     std::vector<std::vector<std::vector<bool>>> expected_image(dimension, std::vector<std::vector<bool>>(dimension, std::vector<bool>(expected_program_num_outputs, 0)));
     for (int i = 0; i < dimension; i++) {
@@ -452,7 +431,7 @@ int main() {
         dimension,
         1,
         3,
-        getExpectedImageForPrewittOneBitEdgeDetection(imageFilename, 1, dimension, 3)
+        getExpectedImageForPrewittEdgeDetection(imageFilename, 1, dimension, 3)
     );
 
     testProgram(
@@ -461,7 +440,7 @@ int main() {
         dimension,
         6,
         9,
-        getExpectedImageForPrewittSixBitEdgeDetection(imageFilename, 6, dimension, 9)
+        getExpectedImageForPrewittEdgeDetection(imageFilename, 6, dimension, 9)
     );
 
     return EXIT_SUCCESS;
