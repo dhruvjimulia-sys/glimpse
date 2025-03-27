@@ -84,7 +84,7 @@ bool *processImage(Program program, uint8_t* pixels, size_t image_x_dim, size_t 
     
     // TODO make this CUDA memory constant as optimization
     Instruction* dev_instructions;
-    size_t instructions_mem_size = sizeof(Instruction) * program.instructionCount;
+    size_t instructions_mem_size = sizeof(Instruction) * program.instructionCount * program.vliwWidth;
     HANDLE_ERROR(cudaMalloc((void **) &dev_instructions, instructions_mem_size));
     HANDLE_ERROR(cudaMemcpy(dev_instructions, program.instructions, instructions_mem_size, cudaMemcpyHostToDevice));
 
@@ -103,8 +103,9 @@ bool *processImage(Program program, uint8_t* pixels, size_t image_x_dim, size_t 
     // debugging output
     size_t* dev_debug_output;
     size_t num_debug_outputs = 3;
-    HANDLE_ERROR(cudaMalloc((void **) &dev_debug_output, sizeof(size_t) * image_size * program.instructionCount * num_debug_outputs));
-    HANDLE_ERROR(cudaMemset(dev_debug_output, 0, sizeof(size_t) * image_size * program.instructionCount * num_debug_outputs));
+    size_t debug_output_mem_size = sizeof(size_t) * image_size * program.instructionCount * program.vliwWidth * num_debug_outputs;
+    HANDLE_ERROR(cudaMalloc((void **) &dev_debug_output, debug_output_mem_size));
+    HANDLE_ERROR(cudaMemset(dev_debug_output, 0, debug_output_mem_size));
 
     // neighbour
     bool* dev_neighbour_shared_values;
@@ -147,7 +148,8 @@ bool *processImage(Program program, uint8_t* pixels, size_t image_x_dim, size_t 
         program_num_outputs,
         program_num_shared_neighbours,
         dev_debug_output,
-        num_debug_outputs
+        num_debug_outputs,
+        program.vliwWidth
     );
 
     HANDLE_ERROR(cudaPeekAtLastError());
@@ -158,11 +160,11 @@ bool *processImage(Program program, uint8_t* pixels, size_t image_x_dim, size_t 
     HANDLE_ERROR(cudaMemcpy(external_values, dev_external_values, external_values_mem_size, cudaMemcpyDeviceToHost));
 
     // debugging output
-    size_t* debug_output = (size_t *) malloc(sizeof(size_t) * image_size * program.instructionCount * num_debug_outputs);
-    HANDLE_ERROR(cudaMemcpy(debug_output, dev_debug_output, sizeof(size_t) * image_size * program.instructionCount * num_debug_outputs, cudaMemcpyDeviceToHost));
+    size_t* debug_output = (size_t *) malloc(debug_output_mem_size);
+    HANDLE_ERROR(cudaMemcpy(debug_output, dev_debug_output, debug_output_mem_size, cudaMemcpyDeviceToHost));
     // for (size_t i = 0; i < image_size; i++) {
-    //     for (size_t j = 0; j < program.instructionCount; j++) {
-    //         size_t offset = i * program.instructionCount * num_debug_outputs + j * num_debug_outputs;
+    //     for (size_t j = 0; j < program.instructionCount * program.vliwWidth; j++) {
+    //         size_t offset = (i * program.instructionCount * program.vliwWidth + j) * num_debug_outputs;
     //         std::cout << "Instruction " << j << " at " << i << ": ";
     //         for (size_t k = 0; k < num_debug_outputs; k++) {
     //             std::cout << debug_output[offset + k] << " ";
@@ -417,7 +419,8 @@ int main() {
     //     }
     // }
 
-    for (size_t vliwWidth = 1; vliwWidth <= 1; vliwWidth++) {
+    // Note: MAX_VLIW_WIDTH set to 4 in pe.cu
+    for (size_t vliwWidth = 2; vliwWidth <= 2; vliwWidth++) {
         std::string vliw_width_str = std::to_string(vliwWidth);
         testProgram(
             ("programs/" + vliw_width_str + "_vliw_slot/edge_detection_one_bit.vis").c_str(),

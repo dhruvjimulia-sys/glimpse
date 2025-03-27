@@ -19,5 +19,6 @@ __global__ void processingElemKernel(
     size_t num_outputs,
     size_t num_shared_neighbours,
     size_t* debug_output,
-    size_t num_debug_outputs
+    size_t num_debug_outputs,
+    size_t vliw_width
 );

@@ -23,7 +23,8 @@ __device__ bool getInstructionInputValue(
     InputC inputc,
     bool *memory,
     uint8_t* image,
-    size_t* pd_bit,
+    size_t pd_bit,
+    bool* pd_increment,
     int64_t x,
     int64_t y,
     size_t image_x_dim,
@@ -41,8 +42,8 @@ __device__ bool getInstructionInputValue(
         case InputKind::Address: input_value = memory[inputc.input.address]; break;
         case InputKind::ZeroValue: input_value = false; break;
         case InputKind::PD:
-            input_value = getBitAt(image[offset], *pd_bit);
-            *pd_bit = *pd_bit + 1;
+            input_value = getBitAt(image[offset], pd_bit);
+            *pd_increment = true;
             break;
         case InputKind::Up:
             if (y - 1 >= 0) {
@@ -99,7 +100,8 @@ __global__ void processingElemKernel(
     size_t num_outputs,
     size_t num_shared_neighbours,
     size_t* debug_output,
-    size_t num_debug_outputs
+    size_t num_debug_outputs,
+    size_t vliw_width
 ) {
     size_t x = threadIdx.x + blockIdx.x * blockDim.x;
     size_t y = threadIdx.y + blockIdx.y * blockDim.y;
@@ -113,8 +115,11 @@ __global__ void processingElemKernel(
         const size_t MEMORY_SIZE_IN_BITS = 24;
         bool memory[MEMORY_SIZE_IN_BITS];
         for (size_t i = 0; i < MEMORY_SIZE_IN_BITS; i++) memory[i] = false;
-        bool carry_register = false;
+        const size_t MAX_VLIW_WIDTH = 4;
+        bool carry_register[MAX_VLIW_WIDTH];
+        bool result_values[MAX_VLIW_WIDTH];
         size_t pd_bit = 0;
+        bool pd_increment = false;
         size_t output_number = 0;
 
         // updated when we write to neighbour
@@ -123,82 +128,103 @@ __global__ void processingElemKernel(
         // shared_neighbour_value is the index of the shared neighbour value
         size_t shared_neighbour_value = 0;
 
+        size_t pc = 1;
+
         for (size_t i = 0; i < num_instructions; i++) {
-            const Instruction instruction = instructions[i];
-            size_t pc = i + 1;
-            bool carryval = false;
-            switch (instruction.carry) {
-                case Carry::CR: carryval = carry_register; break;
-                case Carry::One: carryval = true; break;
-                case Carry::Zero: carryval = false; break;
+            for (size_t j = 0; j < vliw_width; j++) { 
+                const Instruction instruction = instructions[i * vliw_width + j];
+                pc = i + 1;
+                if (instruction.isNop) {
+                    continue;
+                }
+                bool carryval = false;
+                switch (instruction.carry) {
+                    case Carry::CR: carryval = carry_register[j]; break;
+                    case Carry::One: carryval = true; break;
+                    case Carry::Zero: carryval = false; break;
+                }
+                bool input_one = getInstructionInputValue(
+                    instruction.input1,
+                    memory,
+                    image,
+                    pd_bit,
+                    &pd_increment,
+                    image_x,
+                    image_y,
+                    image_x_dim,
+                    image_y_dim,
+                    image_size,
+                    offset,
+                    neighbour_program_counter,
+                    neighbour_shared_values,
+                    neighbour_update_pc,
+                    num_shared_neighbours,
+                    shared_neighbour_value
+                );
+                bool input_two = getInstructionInputValue(
+                    instruction.input2,
+                    memory,
+                    image,
+                    pd_bit,
+                    &pd_increment,
+                    image_x,
+                    image_y,
+                    image_x_dim,
+                    image_y_dim,
+                    image_size,
+                    offset,
+                    neighbour_program_counter,
+                    neighbour_shared_values,
+                    neighbour_update_pc,
+                    num_shared_neighbours,
+                    shared_neighbour_value
+                );
+
+                // printf("offset: %lu, instruction: %lu, input_one: %d, carryval: %d, input_two: %d\n", offset, i, input_one, carryval, input_two);
+                
+                // debug_output value = 0 if nop
+                debug_output[((offset * num_instructions + i) * vliw_width + j) * num_debug_outputs] = input_one;
+                debug_output[((offset * num_instructions + i) * vliw_width + j) * num_debug_outputs + 1] = input_two;
+                debug_output[((offset * num_instructions + i) * vliw_width + j) * num_debug_outputs + 2] = carryval;
+
+                const bool sum = (input_one != input_two) != carryval;
+                const bool carry = (carryval && (input_one != input_two)) || (input_one && input_two);
+
+                // Assuming can only be two values
+                result_values[j] = (instruction.resultType.value == 's') ? sum : carry;
+
+                // Interesting choice...
+                if (instruction.carry == Carry::CR) {
+                    carry_register[j] = carry;
+                }
             }
-            bool input_one = getInstructionInputValue(
-                instruction.input1,
-                memory,
-                image,
-                &pd_bit,
-                image_x,
-                image_y,
-                image_x_dim,
-                image_y_dim,
-                image_size,
-                offset,
-                neighbour_program_counter,
-                neighbour_shared_values,
-                neighbour_update_pc,
-                num_shared_neighbours,
-                shared_neighbour_value
-            );
-            bool input_two = getInstructionInputValue(
-                instruction.input2,
-                memory,
-                image,
-                &pd_bit,
-                image_x,
-                image_y,
-                image_x_dim,
-                image_y_dim,
-                image_size,
-                offset,
-                neighbour_program_counter,
-                neighbour_shared_values,
-                neighbour_update_pc,
-                num_shared_neighbours,
-                shared_neighbour_value
-            );
 
-            // if (image_x < 32 && image_y < 32) {
-            //     printf("offset: %lu, instruction: %lu, input_one: %d, carryval: %d, input_two: %d\n", offset, i, input_one, carryval, input_two);
-            // }
-            debug_output[(offset * num_instructions + i) * num_debug_outputs] = input_one;
-            debug_output[(offset * num_instructions + i) * num_debug_outputs + 1] = input_two;
-            debug_output[(offset * num_instructions + i) * num_debug_outputs + 2] = carryval;
-
-            const bool sum = (input_one != input_two) != carryval;
-            const bool carry = (carryval && (input_one != input_two)) || (input_one && input_two);
-
-            // Assuming can only be two values
-            bool resultvalue = (instruction.resultType.value == 's') ? sum : carry;
-
-            // Interesting choice...
-            if (instruction.carry == Carry::CR) {
-                carry_register = carry;
+            if (pd_increment) {
+                pd_bit++;
             }
+            pd_increment = false;
 
-            switch (instruction.result.resultKind) {
-                case ResultKind::Address:
-                    memory[instruction.result.address] = resultvalue;
-                    break;
-                case ResultKind::Neighbour:
-                    neighbour_update_pc = pc;
-                    neighbour_shared_values[offset * num_shared_neighbours + shared_neighbour_value] = resultvalue;
-                    shared_neighbour_value++;
-                    neighbour_program_counter[offset].store(pc, cuda::std::memory_order_release);
-                    break;
-                case ResultKind::External:
-                    external_values[num_outputs * offset + output_number] = resultvalue;
-                    output_number++;
-                    break;
+            for (size_t j = 0; j < vliw_width; j++) {
+                const Instruction instruction = instructions[i * vliw_width + j];
+                if (instruction.isNop) {
+                    continue;
+                }
+                size_t resultvalue = result_values[j];
+                switch (instruction.result.resultKind) {
+                    case ResultKind::Address:
+                        memory[instruction.result.address] = resultvalue;
+                        break;
+                    case ResultKind::Neighbour:
+                        neighbour_update_pc = pc;
+                        neighbour_shared_values[offset * num_shared_neighbours + shared_neighbour_value] = resultvalue;
+                        shared_neighbour_value++;
+                        neighbour_program_counter[offset].store(pc, cuda::std::memory_order_release);
+                        break;
+                    case ResultKind::External:
+                        external_values[num_outputs * offset + output_number] = resultvalue;
+                        output_number++;
+                        break;
+                }
             }
         }
     }
