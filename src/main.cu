@@ -417,66 +417,69 @@ int main() {
     //     }
     // }
 
-    testProgram(
-        "programs/edge_detection_one_bit.vis",
-        1,
-        imageFilename,
-        dimension,
-        1,
-        1,
-        getExpectedImageForOneBitEdgeDetection(imageFilename, 1, dimension, 1)
-    );
+    for (size_t vliwWidth = 1; vliwWidth <= 1; vliwWidth++) {
+        std::string vliw_width_str = std::to_string(vliwWidth);
+        testProgram(
+            ("programs/" + vliw_width_str + "_vliw_slot/edge_detection_one_bit.vis").c_str(),
+            vliwWidth,
+            imageFilename,
+            dimension,
+            1,
+            1,
+            getExpectedImageForOneBitEdgeDetection(imageFilename, 1, dimension, 1)
+        );
 
-    
-    testProgram(
-        "programs/thinning_one_bit.vis",
-        1,
-        imageFilename,
-        dimension,
-        1,
-        1,
-        getExpectedImageForOneBitThinning(imageFilename, 1, dimension, 1)
-    );
+        
+        testProgram(
+            ("programs/" + vliw_width_str + "_vliw_slot/thinning_one_bit.vis").c_str(),
+            vliwWidth,
+            imageFilename,
+            dimension,
+            1,
+            1,
+            getExpectedImageForOneBitThinning(imageFilename, 1, dimension, 1)
+        );
 
-    testProgram(
-        "programs/smoothing_one_bit.vis",
-        1,
-        imageFilename,
-        dimension,
-        1,
-        1,
-        getExpectedImageForOneBitSmoothing(imageFilename, 1, dimension, 1)
-    );
+        testProgram(
+            ("programs/" + vliw_width_str + "_vliw_slot/smoothing_one_bit.vis").c_str(),
+            vliwWidth,
+            imageFilename,
+            dimension,
+            1,
+            1,
+            getExpectedImageForOneBitSmoothing(imageFilename, 1, dimension, 1)
+        );
 
-    testProgram(
-        "programs/prewitt_edge_detection_one_bit.vis",
-        1,
-        imageFilename,
-        dimension,
-        1,
-        3,
-        getExpectedImageForPrewittEdgeDetection(imageFilename, 1, dimension, 3)
-    );
+        testProgram(
+            ("programs/" + vliw_width_str + "_vliw_slot/prewitt_edge_detection_one_bit.vis").c_str(),
+            vliwWidth,
+            imageFilename,
+            dimension,
+            1,
+            3,
+            getExpectedImageForPrewittEdgeDetection(imageFilename, 1, dimension, 3)
+        );
 
-    testProgram(
-        "programs/prewitt_edge_detection_six_bits.vis",
-        1,
-        imageFilename,
-        dimension,
-        6,
-        9,
-        getExpectedImageForPrewittEdgeDetection(imageFilename, 6, dimension, 9)
-    );
+        testProgram(
+            ("programs/" + vliw_width_str + "_vliw_slot/prewitt_edge_detection_six_bits.vis").c_str(),
+            vliwWidth,
+            imageFilename,
+            dimension,
+            6,
+            9,
+            getExpectedImageForPrewittEdgeDetection(imageFilename, 6, dimension, 9)
+        );
 
-    testProgram(
-        "programs/smoothing_six_bits.vis",
-        1,
-        imageFilename,
-        dimension,
-        6,
-        6,
-        getExpectedImageForMultiBitSmoothing(imageFilename, 6, dimension, 6)
-    );
+        testProgram(
+            ("programs/" + vliw_width_str + "_vliw_slot/smoothing_six_bits.vis").c_str(),
+            vliwWidth,
+            imageFilename,
+            dimension,
+            6,
+            6,
+            getExpectedImageForMultiBitSmoothing(imageFilename, 6, dimension, 6)
+        );
+    }
 
     return EXIT_SUCCESS;
 }

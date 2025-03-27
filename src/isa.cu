@@ -43,7 +43,7 @@ void printCarry(Carry carry) {
 
 void Instruction::print() const {
     if (isNop) {
-        printf("_");
+        printf("nop");
         return;
     }
     
@@ -222,7 +222,7 @@ Instruction Parser::parseInstruction() {
     Instruction instruction;
     
     skipWhitespace();
-    if (match("_")) {
+    if (match("nop")) {
         instruction.isNop = true;
         return instruction;
     }
