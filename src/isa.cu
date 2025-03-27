@@ -42,6 +42,11 @@ void printCarry(Carry carry) {
 }
 
 void Instruction::print() const {
+    if (isNop) {
+        printf("_");
+        return;
+    }
+    
     result.print();
     printf(" = ");
     input1.print();
@@ -50,32 +55,63 @@ void Instruction::print() const {
     printf(" + ");
     printCarry(carry);
     printf(" ");
-    printf("(%c)\n", resultType.value);
+    printf("(%c)", resultType.value);
 };
 
-Program::Program(size_t count, Instruction* instr) : instructionCount(count), instructions(instr) {}
+Program::Program(size_t vliwWidth, size_t count, Instruction** instr) 
+    : vliwWidth(vliwWidth), instructionCount(count), instructions(instr) {}
 
 void Program::print() const {
     for (size_t i = 0; i < instructionCount; ++i) {
-        instructions[i].print();
+        for (size_t j = 0; j < vliwWidth; ++j) {
+            instructions[i][j].print();
+            if (j < vliwWidth - 1) {
+                printf(" : ");
+            }
+        }
+        printf("\n");
     }
 }
 
 Parser::Parser(const std::string &input): input(input), pos(0) {};
 
-Program Parser::parse() {
-    std::vector<Instruction> instructionList;
+Program Parser::parse(size_t vliw) {
+    std::vector<std::vector<Instruction>> instructionList;
+    
     while (true) {
         skipWhitespace();
         if (match("end")) {
             break;
         }
-        instructionList.push_back(parseInstruction());
+        
+        instructionList.push_back(parseVliwInstruction(vliw));
         expect(';');
     }
-    Program program(instructionList.size(), new Instruction[instructionList.size()]);
-    std::copy(instructionList.begin(), instructionList.end(), program.instructions);
-    return program;
+    
+    Instruction** instructions = new Instruction*[instructionList.size()];
+    for (size_t i = 0; i < instructionList.size(); ++i) {
+        instructions[i] = new Instruction[vliw];
+        std::copy(instructionList[i].begin(), instructionList[i].end(), instructions[i]);
+    }
+    
+    return Program(vliw, instructionList.size(), instructions);
+}
+
+std::vector<Instruction> Parser::parseVliwInstruction(size_t vliw) {
+    std::vector<Instruction> vliwInstructions;
+    
+    for (size_t i = 0; i < vliw; ++i) {
+        skipWhitespace();
+        
+        if (i == vliw - 1) {
+            vliwInstructions.push_back(parseInstruction());
+        } else {
+            vliwInstructions.push_back(parseInstruction());
+            expect(':');
+        }
+    }
+    
+    return vliwInstructions;
 }
 
 void Parser::skipWhitespace() {
@@ -184,7 +220,15 @@ ResultType Parser::parseResultType() {
 }
 
 Instruction Parser::parseInstruction() {
-    Instruction instruction; 
+    Instruction instruction;
+    
+    skipWhitespace();
+    if (match("_")) {
+        instruction.isNop = true;
+        return instruction;
+    }
+    
+    instruction.isNop = false;
     instruction.result = parseResult();
     expect('=');
     instruction.input1 = parseInputC();
