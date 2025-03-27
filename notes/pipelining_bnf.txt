@@ -1,0 +1,7 @@
+<input> ::= '['<number>']' | 'PD' | 'up' | 'down' | 'right' | 'left' | '0'
+<resulttype> ::= 's' | 'c'
+<result> ::= '['<number>']' | 'neighbour' | 'external'
+<inputc> ::= <input> | '~'<input>
+<carry> ::= '0' | '1' | 'CR'
+<instruction> ::= <inputc> '+' <inputc> '+' <carry> '('<resulttype>')' | nop
+<program> ::= 'end' | <instruction> ';' <program>

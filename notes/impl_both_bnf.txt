@@ -1,0 +1,11 @@
+<input> ::= '['<number>']' | 'PD' | 'up' | 'down' | 'right' | 'left' | '0'
+<resulttype> ::= 's' | 'c'
+<result> ::= '['<number>']' | 'neighbour' | 'external'
+<inputc> ::= <input> | '~'<input>
+<carry> ::= '0' | '1' | 'CR'
+<instruction> ::= <inputc> '+' <inputc> '+' <carry> '('<resulttype>')' | nop
+<vliw_instruction> ::= (<instruction> ':'){vliw - 1} <instruction>
+<program> ::= 'end' | <vliw_instruction> ';' <program>
+
+# make sure when pipelining = true, vliw must be 1, reuse nop from vliw
+# equivalent to vliw_bnf.txt

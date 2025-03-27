@@ -50,8 +50,9 @@ struct Instruction {
 struct Program {
     Instruction* instructions;
     size_t instructionCount;
+    size_t vliwWidth;
 
-    Program(size_t vliwWidth, size_t count, Instruction** instr);
+    Program(size_t vliwWidth, size_t count, Instruction* instr);
     __device__ __host__ void print() const;
 };
 
@@ -65,7 +66,7 @@ private:
     size_t pos;
 
     void skipWhitespace();
-    std::vector<Instruction> Parser::parseVliwInstruction(size_t vliw);
+    std::vector<Instruction> parseVliwInstruction(size_t vliw);
     bool match(const std::string &str);
     void expect(char ch);
     Result parseResult();

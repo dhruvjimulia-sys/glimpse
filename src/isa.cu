@@ -58,13 +58,13 @@ void Instruction::print() const {
     printf("(%c)", resultType.value);
 };
 
-Program::Program(size_t vliwWidth, size_t count, Instruction** instr) 
+Program::Program(size_t vliwWidth, size_t count, Instruction* instr) 
     : vliwWidth(vliwWidth), instructionCount(count), instructions(instr) {}
 
 void Program::print() const {
     for (size_t i = 0; i < instructionCount; ++i) {
         for (size_t j = 0; j < vliwWidth; ++j) {
-            instructions[i][j].print();
+            instructions[i * vliwWidth + j].print();
             if (j < vliwWidth - 1) {
                 printf(" : ");
             }
@@ -88,10 +88,9 @@ Program Parser::parse(size_t vliw) {
         expect(';');
     }
     
-    Instruction** instructions = new Instruction*[instructionList.size()];
+    Instruction* instructions = new Instruction[instructionList.size() * vliw];
     for (size_t i = 0; i < instructionList.size(); ++i) {
-        instructions[i] = new Instruction[vliw];
-        std::copy(instructionList[i].begin(), instructionList[i].end(), instructions[i]);
+        std::copy(instructionList[i].begin(), instructionList[i].end(), instructions + i * vliw);
     }
     
     return Program(vliw, instructionList.size(), instructions);

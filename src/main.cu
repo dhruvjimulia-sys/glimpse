@@ -182,7 +182,7 @@ bool *processImage(Program program, uint8_t* pixels, size_t image_x_dim, size_t 
 }
 
 
-void testProgram(std::string programFilename, const char *imageFilename, size_t dimension, size_t num_bits, size_t expected_program_num_outputs, std::vector<std::vector<std::vector<bool>>> expected_image) {
+void testProgram(std::string programFilename, size_t vliwWidth, const char *imageFilename, size_t dimension, size_t num_bits, size_t expected_program_num_outputs, std::vector<std::vector<std::vector<bool>>> expected_image) {
     uint8_t* image = transform_image(imageFilename, dimension, num_bits);
 
     // Print image in binary form
@@ -217,7 +217,7 @@ void testProgram(std::string programFilename, const char *imageFilename, size_t 
     readFile(programFilename, programText);
 
     Parser parser(programText);
-    Program program = parser.parse();
+    Program program = parser.parse(vliwWidth);
     // program.print();
 
     size_t program_num_outputs = numOutputs(program);
@@ -419,6 +419,7 @@ int main() {
 
     testProgram(
         "programs/edge_detection_one_bit.vis",
+        1,
         imageFilename,
         dimension,
         1,
@@ -429,6 +430,7 @@ int main() {
     
     testProgram(
         "programs/thinning_one_bit.vis",
+        1,
         imageFilename,
         dimension,
         1,
@@ -438,6 +440,7 @@ int main() {
 
     testProgram(
         "programs/smoothing_one_bit.vis",
+        1,
         imageFilename,
         dimension,
         1,
@@ -447,6 +450,7 @@ int main() {
 
     testProgram(
         "programs/prewitt_edge_detection_one_bit.vis",
+        1,
         imageFilename,
         dimension,
         1,
@@ -456,6 +460,7 @@ int main() {
 
     testProgram(
         "programs/prewitt_edge_detection_six_bits.vis",
+        1,
         imageFilename,
         dimension,
         6,
@@ -465,6 +470,7 @@ int main() {
 
     testProgram(
         "programs/smoothing_six_bits.vis",
+        1,
         imageFilename,
         dimension,
         6,
