@@ -1,4 +1,4 @@
-[0] = PD + ~0 + CR (s): neighbour = PD + 0 + 0 (s);
+neighbour = PD + ~0 + CR (c): nop;
 [0] = up + down + CR (s): [2] = left + right + CR (s);
 [1] = ~0 + ~0 + CR (s): [3] = 0 + 0 + CR (s);
 [0] = [0] + [2] + CR (s): nop;

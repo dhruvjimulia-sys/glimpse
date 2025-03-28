@@ -1,6 +1,6 @@
-[0] = PD + 0 + 0 (s): neighbour = PD + 0 + 0 (s);
-[1] = [0] + right + 0 (s): [2] = [0] + left + 0 (s);
-[3] = [0] + up + 0 (s): [4] = [0] + down + 0 (s);
-[1] = [1] + [2] + 1 (c): [3] = [3] + [4] + 1 (c);
-external = [1] + [3] + 1 (c): nop;
+neighbour = PD + ~0 + CR (c): nop;
+[0] = 0 + right + CR (s): [1] = right + down + 0 (s);
+[0] = [0] + [1] + 1 (c): [1] = down + left + 0 (s);
+[0] = [0] + [1] + 1 (c): [1] = left + up + 0 (s);
+external = [0] + [1] + 1 (c): nop;
 end
