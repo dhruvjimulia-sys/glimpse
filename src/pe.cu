@@ -117,7 +117,9 @@ __global__ void processingElemKernel(
         for (size_t i = 0; i < MEMORY_SIZE_IN_BITS; i++) memory[i] = false;
         const size_t MAX_VLIW_WIDTH = 4;
         bool carry_register[MAX_VLIW_WIDTH];
+        for (size_t i = 0; i < MAX_VLIW_WIDTH; i++) carry_register[i] = false;
         bool result_values[MAX_VLIW_WIDTH];
+        for (size_t i = 0; i < MAX_VLIW_WIDTH; i++) result_values[i] = false;
         size_t pd_bit = 0;
         bool pd_increment = false;
         size_t output_number = 0;
