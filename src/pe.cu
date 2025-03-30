@@ -229,5 +229,14 @@ __global__ void processingElemKernel(
                 }
             }
         }
+
+        // Carry register check only for first pixel (need to check for all to be robust)
+        // if (offset == 0) {
+        //     for (size_t j = 0; j < vliw_width; j++) {
+        //         if (carry_register[j]) {
+        //             printf("WARNING: carry register not set to false at end of program");
+        //         }
+        //     }
+        // }
     }
 };

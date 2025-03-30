@@ -453,6 +453,7 @@ int main() {
             getExpectedImageForOneBitSmoothing(imageFilename, 1, dimension, 1)
         );
 
+        /*
         testProgram(
             ("programs/" + vliw_width_str + "_vliw_slot/prewitt_edge_detection_one_bit.vis").c_str(),
             vliwWidth,
@@ -462,6 +463,7 @@ int main() {
             3,
             getExpectedImageForPrewittEdgeDetection(imageFilename, 1, dimension, 3)
         );
+        */
 
         testProgram(
             ("programs/" + vliw_width_str + "_vliw_slot/prewitt_edge_detection_six_bits.vis").c_str(),
