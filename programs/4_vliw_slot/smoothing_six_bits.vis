@@ -1,0 +1,11 @@
+neighbour = PD + 0 + 0 (s): nop: nop: nop;
+neighbour = PD + 0 + 0 (s): [0] = left + right + CR (s): [6] = up + down + CR (s): nop;
+neighbour = PD + 0 + 0 (s): [1] = left + right + CR (s): [7] = up + down + CR (s): [0] = [0] + [6] + CR (s);
+neighbour = PD + 0 + 0 (s): [2] = left + right + CR (s): [8] = up + down + CR (s): [1] = [1] + [7] + CR (s);
+neighbour = PD + 0 + 0 (s): [3] = left + right + CR (s): [9] = up + down + CR (s): external = [2] + [8] + CR (s);
+neighbour = PD + 0 + 0 (s): [4] = left + right + CR (s): [10] = up + down + CR (s): external = [3] + [9] + CR (s);
+nop: [5] = left + right + CR (s): [11] = up + down + CR (s): external = [4] + [10] + CR (s);
+nop: [13] = 0 + 0 + CR (s): [12] = 0 + 0 + CR (s): external = [5] + [11] + CR (s);
+nop: nop: nop: external = [13] + [12] + CR (s);
+nop: nop: nop: external = 0 + 0 + CR (s);
+end

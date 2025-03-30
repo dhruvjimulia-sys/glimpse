@@ -420,7 +420,7 @@ int main() {
     // }
 
     // Note: MAX_VLIW_WIDTH set to 4 in pe.cu
-    for (size_t vliwWidth = 1; vliwWidth <= 3; vliwWidth++) {
+    for (size_t vliwWidth = 1; vliwWidth <= 4; vliwWidth++) {
         std::string vliw_width_str = std::to_string(vliwWidth);
         testProgram(
             ("programs/" + vliw_width_str + "_vliw_slot/edge_detection_one_bit.vis").c_str(),
