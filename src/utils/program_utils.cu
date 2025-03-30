@@ -3,7 +3,7 @@
 size_t numOutputs(Program program) {
     size_t num_outputs = 0;
     for (int i = 0; i < program.instructionCount * program.vliwWidth; i++) {
-        if (program.instructions[i].result.resultKind == ResultKind::External) {
+        if (program.instructions[i].result.resultKind == ResultKind::External && !program.instructions[i].isNop) {
             num_outputs++;
         }
     }
@@ -13,7 +13,7 @@ size_t numOutputs(Program program) {
 size_t numSharedNeighbours(Program program) {
     size_t num_shared_neighbours = 0;
     for (int i = 0; i < program.instructionCount * program.vliwWidth; i++) {
-        if (program.instructions[i].result.resultKind == ResultKind::Neighbour) {
+        if (program.instructions[i].result.resultKind == ResultKind::Neighbour && !program.instructions[i].isNop) {
             num_shared_neighbours++;
         }
     }

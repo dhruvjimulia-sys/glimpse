@@ -1,0 +1,21 @@
+[0] = ~0 + ~0 + CR (s): neighbour = PD + 0 + 0 (s): nop;
+[0] = left + ~right + CR (s): neighbour = PD + 0 + 0 (s): nop;
+[1] = left + ~right + CR (s): neighbour = PD + 0 + 0 (s): nop;
+[2] = left + ~right + CR (s): neighbour = PD + 0 + 0 (s): nop;
+[3] = left + ~right + CR (s): neighbour = PD + 0 + 0 (s): nop;
+[4] = left + ~right + CR (s): neighbour = PD + 0 + 0 (s): nop;
+[5] = left + ~right + CR (s): neighbour = [0] + 0 + 0 (s): nop;
+[6] = 0 + ~0 + CR (s): [9] = up + down + CR (s): neighbour = [1] + 0 + 0 (s);
+[7] = 0 + ~0 + CR (s): [10] = up + down + CR (s): neighbour = [2] + 0 + 0 (s);
+[8] = 0 + ~0 + CR (s): [11] = up + down + CR (s): neighbour = [3] + 0 + 0 (s);
+[18] = 0 + 0 + CR (s): [12] = up + down + CR (s): neighbour = [4] + 0 + 0 (s);
+external = [0] + [9] + CR (s): [13] = up + down + CR (s): neighbour = [5] + 0 + 0 (s);
+external = [1] + [10] + CR (s): [14] = up + down + CR (s): neighbour = [6] + 0 + 0 (s);
+external = [2] + [11] + CR (s): [15] = up + down + CR (s): neighbour = [7] + 0 + 0 (s);
+external = [3] + [12] + CR (s): [16] = up + down + CR (s): neighbour = [8] + 0 + 0 (s);
+external = [4] + [13] + CR (s): [17] = up + down + CR (s): nop;
+external = [5] + [14] + CR (s): nop: nop;
+external = [6] + [15] + CR (s): nop: nop;
+external = [7] + [16] + CR (s): nop: nop;
+external = [8] + [17] + CR (s): nop: nop;
+end
