@@ -92,22 +92,18 @@ bool *processImage(Program program, uint8_t* pixels, size_t image_x_dim, size_t 
 
     // read grayscale pixels from image and memcpy to cuda memory
     // TODO make this CUDA memory constant as optimization
-
     size_t image_size = image_x_dim * image_y_dim;
-    
     size_t image_mem_size = sizeof(uint8_t) * image_size;
-
     uint8_t* dev_image;
-
     HANDLE_ERROR(cudaMalloc((void **) &dev_image, image_mem_size));
     HANDLE_ERROR(cudaMemcpy(dev_image, pixels, image_mem_size, cudaMemcpyHostToDevice));
 
     // debugging output
-    size_t* dev_debug_output;
+    size_t* dev_debug_output = nullptr;
     size_t num_debug_outputs = 3;
-    size_t debug_output_mem_size = sizeof(size_t) * image_size * program.instructionCount * program.vliwWidth * num_debug_outputs;
-    HANDLE_ERROR(cudaMalloc((void **) &dev_debug_output, debug_output_mem_size));
-    HANDLE_ERROR(cudaMemset(dev_debug_output, 0, debug_output_mem_size));
+    // size_t debug_output_mem_size = sizeof(size_t) * image_size * program.instructionCount * program.vliwWidth * num_debug_outputs;
+    // HANDLE_ERROR(cudaMalloc((void **) &dev_debug_output, debug_output_mem_size));
+    // HANDLE_ERROR(cudaMemset(dev_debug_output, 0, debug_output_mem_size));
 
     // neighbour
     bool* dev_neighbour_shared_values;
@@ -161,8 +157,8 @@ bool *processImage(Program program, uint8_t* pixels, size_t image_x_dim, size_t 
     HANDLE_ERROR(cudaMemcpy(external_values, dev_external_values, external_values_mem_size, cudaMemcpyDeviceToHost));
 
     // debugging output
-    size_t* debug_output = (size_t *) malloc(debug_output_mem_size);
-    HANDLE_ERROR(cudaMemcpy(debug_output, dev_debug_output, debug_output_mem_size, cudaMemcpyDeviceToHost));
+    // size_t* debug_output = (size_t *) malloc(debug_output_mem_size);
+    // HANDLE_ERROR(cudaMemcpy(debug_output, dev_debug_output, debug_output_mem_size, cudaMemcpyDeviceToHost));
     // for (size_t i = 0; i < image_size; i++) {
     //     for (size_t j = 0; j < program.instructionCount * program.vliwWidth; j++) {
     //         size_t offset = (i * program.instructionCount * program.vliwWidth + j) * num_debug_outputs;
@@ -179,7 +175,7 @@ bool *processImage(Program program, uint8_t* pixels, size_t image_x_dim, size_t 
     HANDLE_ERROR(cudaFree(dev_neighbour_shared_values));
     HANDLE_ERROR(cudaFree(dev_neighbour_program_counter));
     HANDLE_ERROR(cudaFree(dev_external_values));
-    HANDLE_ERROR(cudaFree(dev_debug_output));
+    // HANDLE_ERROR(cudaFree(dev_debug_output));
 
     return external_values;
 }
