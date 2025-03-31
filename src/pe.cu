@@ -185,9 +185,9 @@ __global__ void processingElemKernel(
                 // printf("offset: %lu, instruction: %lu, input_one: %d, carryval: %d, input_two: %d\n", offset, i, input_one, carryval, input_two);
                 
                 // debug_output value = 0 if nop
-                debug_output[((offset * num_instructions + i) * vliw_width + j) * num_debug_outputs] = input_one;
-                debug_output[((offset * num_instructions + i) * vliw_width + j) * num_debug_outputs + 1] = input_two;
-                debug_output[((offset * num_instructions + i) * vliw_width + j) * num_debug_outputs + 2] = carryval;
+                // debug_output[((offset * num_instructions + i) * vliw_width + j) * num_debug_outputs] = input_one;
+                // debug_output[((offset * num_instructions + i) * vliw_width + j) * num_debug_outputs + 1] = input_two;
+                // debug_output[((offset * num_instructions + i) * vliw_width + j) * num_debug_outputs + 2] = carryval;
 
                 const bool sum = (input_one != input_two) != carryval;
                 const bool carry = (carryval && (input_one != input_two)) || (input_one && input_two);

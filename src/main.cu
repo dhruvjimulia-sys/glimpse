@@ -181,7 +181,7 @@ bool *processImage(Program program, uint8_t* pixels, size_t image_x_dim, size_t 
 }
 
 
-void testProgram(std::string programFilename, size_t vliwWidth, const char *imageFilename, size_t dimension, size_t num_bits, size_t expected_program_num_outputs, std::vector<std::vector<std::vector<bool>>> expected_image, std::vector<size_t>& timings, size_t timing_index) {
+void testProgram(std::string programFilename, size_t vliwWidth, const char *imageFilename, size_t dimension, size_t num_bits, size_t expected_program_num_outputs, std::vector<std::vector<std::vector<bool>>> expected_image, std::vector<size_t>& timings, size_t timing_index, bool useGPU) {
     uint8_t* image = transform_image(imageFilename, dimension, num_bits);
 
     // Print image in binary form
@@ -230,11 +230,17 @@ void testProgram(std::string programFilename, size_t vliwWidth, const char *imag
 
     // HANDLE_ERROR(cudaEventRecord(start, 0));
 
-    auto normal_start = std::chrono::high_resolution_clock::now();
-
-    bool* processed_image = processImage(program, image, dimension, dimension);
-
-    auto normal_stop = std::chrono::high_resolution_clock::now();
+    bool *processed_image = nullptr;
+    if (useGPU) {
+        auto normal_start = std::chrono::high_resolution_clock::now();
+        processed_image = processImage(program, image, dimension, dimension);
+        auto normal_stop = std::chrono::high_resolution_clock::now();
+        size_t duration = std::chrono::duration_cast<std::chrono::microseconds>(normal_stop - normal_start).count();
+        timings[timing_index] = duration;
+    } else {
+        std::cout << "Processing on CPU" << std::endl;
+        return;
+    }
 
     // HANDLE_ERROR(cudaEventRecord(stop, 0));
     // HANDLE_ERROR(cudaEventSynchronize(stop));
@@ -244,8 +250,7 @@ void testProgram(std::string programFilename, size_t vliwWidth, const char *imag
     // std::cout << "Processing time: " << elapsedTime << " ms" << std::endl;
     // std::cout << "Frame rate: " << 1000.0f / elapsedTime << " fps" << std::endl;
 
-    size_t duration = std::chrono::duration_cast<std::chrono::microseconds>(normal_stop - normal_start).count();
-    timings[timing_index] = duration;
+    
     // std::cout << "Processing time: " << duration / 1000.0f << " ms" << std::endl;
     // std::cout << "Frame rate: " << 1000000.0f / duration << " fps" << std::endl;
 
@@ -395,11 +400,7 @@ std::vector<std::vector<std::vector<bool>>> getExpectedImageForMultiBitSmoothing
     return expected_image;
 }
 
-int main() {
-    queryGPUProperties();
-
-    const char *imageFilename = "images/windmill_128.jpg";
-    size_t dimension = 128;
+size_t testAllPrograms(const char *imageFilename, size_t dimension, bool useGPU) {
 
     uint8_t* image = transform_image(imageFilename, dimension, 1);
 
@@ -436,7 +437,8 @@ int main() {
             1,
             getExpectedImageForOneBitEdgeDetection(imageFilename, 1, dimension, 1),
             timings,
-            (vliwWidth - min_vliw_width) * NUM_TESTS + 0
+            (vliwWidth - min_vliw_width) * NUM_TESTS + 0,
+            useGPU
         );
 
         
@@ -449,7 +451,8 @@ int main() {
             1,
             getExpectedImageForOneBitThinning(imageFilename, 1, dimension, 1),
             timings,
-            (vliwWidth - min_vliw_width) * NUM_TESTS + 1
+            (vliwWidth - min_vliw_width) * NUM_TESTS + 1,
+            useGPU
         );
 
         testProgram(
@@ -461,7 +464,8 @@ int main() {
             1,
             getExpectedImageForOneBitSmoothing(imageFilename, 1, dimension, 1),
             timings,
-            (vliwWidth - min_vliw_width) * NUM_TESTS + 2
+            (vliwWidth - min_vliw_width) * NUM_TESTS + 2,
+            useGPU
         );
 
         /*
@@ -485,7 +489,8 @@ int main() {
             9,
             getExpectedImageForPrewittEdgeDetection(imageFilename, 6, dimension, 9),
             timings,
-            (vliwWidth - min_vliw_width) * NUM_TESTS + 3
+            (vliwWidth - min_vliw_width) * NUM_TESTS + 3,
+            useGPU
         );
 
         testProgram(
@@ -497,7 +502,8 @@ int main() {
             6,
             getExpectedImageForMultiBitSmoothing(imageFilename, 6, dimension, 6),
             timings,
-            (vliwWidth - min_vliw_width) * NUM_TESTS + 4
+            (vliwWidth - min_vliw_width) * NUM_TESTS + 4,
+            useGPU
         );
     }
     
@@ -506,9 +512,18 @@ int main() {
     for (size_t i = 0; i < num_total_tests; i++) {
         total_duration += timings[i];
     }
-    size_t average_duration = total_duration / num_total_tests;
-    std::cout << "Average processing time: " << average_duration / 1000.0f << " ms" << std::endl;
-    std::cout << "Average frame rate: " << 1000000.0f / average_duration << " fps" << std::endl;
+    return total_duration / num_total_tests;
+}
+
+int main() {
+    queryGPUProperties();
+
+    const char *imageFilename = "images/windmill_128.jpg";
+    size_t dimension = 128;
+
+    size_t average_gpu_duration = testAllPrograms(imageFilename, dimension, true);
+    std::cout << "Average processing time (GPU): " << average_gpu_duration / 1000.0f << " ms" << std::endl;
+    std::cout << "Average frame rate (GPU): " << 1000000.0f / average_gpu_duration << " fps" << std::endl;
 
     return EXIT_SUCCESS;
 }
