@@ -74,7 +74,7 @@ uint8_t* transform_image(const char* filename, int new_dimension, int new_bits) 
     return gray_data;
 }
 
-bool *processImage(Program program, uint8_t* pixels, size_t image_x_dim, size_t image_y_dim) {
+bool *process_image_gpu(Program program, uint8_t* pixels, size_t image_x_dim, size_t image_y_dim) {
     size_t program_num_outputs = numOutputs(program);
     size_t program_num_shared_neighbours = numSharedNeighbours(program);
 
@@ -180,10 +180,216 @@ bool *processImage(Program program, uint8_t* pixels, size_t image_x_dim, size_t 
     return external_values;
 }
 
+bool get_instruction_input_value_cpu(
+    InputC inputc,
+    bool* memory,
+    uint8_t* image,
+    size_t pd_bit,
+    bool* pd_increment,
+    int64_t x,
+    int64_t y,
+    size_t image_x_dim,
+    size_t image_y_dim,
+    size_t image_size,
+    size_t offset,
+    bool* neighbour_shared_values,
+    size_t num_shared_neighbours,
+    size_t shared_neighbour_value
+) {
+    bool input_value = false;
+    switch (inputc.input.inputKind) {
+        case InputKind::Address: input_value = memory[inputc.input.address]; break;
+        case InputKind::ZeroValue: input_value = false; break;
+        case InputKind::PD:
+            input_value = getBitAt(image[offset], pd_bit);
+            *pd_increment = true;
+            break;
+        case InputKind::Up:
+            if (y - 1 >= 0) {
+                int64_t up_index = offset - image_x_dim;
+                input_value = neighbour_shared_values[up_index * num_shared_neighbours + shared_neighbour_value - 1];
+            } else {
+                input_value = false;
+            }
+            break;
+        case InputKind::Down:
+            if (y + 1 < image_y_dim) {
+                int64_t down_index = offset + image_x_dim;
+                input_value = neighbour_shared_values[down_index * num_shared_neighbours + shared_neighbour_value - 1];
+            } else {
+                input_value = false;
+            }
+            break;
+        case InputKind::Right:
+            if (x + 1 < image_x_dim) {
+                int64_t right_index = offset + 1;
+                input_value = neighbour_shared_values[right_index * num_shared_neighbours + shared_neighbour_value - 1];
+            } else {
+                input_value = false;
+            }
+            break;
+        case InputKind::Left:
+            if (x - 1 >= 0) {
+                int64_t left_index = offset - 1;
+                input_value = neighbour_shared_values[left_index * num_shared_neighbours + shared_neighbour_value - 1];
+            } else {
+                input_value = false;
+            }
+            break;
+        default:
+            break;
+    }
+    return (inputc.negated) ? !input_value : input_value;
+}
+
+bool *process_image_cpu(Program program, uint8_t* pixels, size_t image_x_dim, size_t image_y_dim) {
+    size_t program_num_outputs = numOutputs(program);
+    size_t program_num_shared_neighbours = numSharedNeighbours(program);
+    size_t image_size = image_x_dim * image_y_dim;
+
+    bool* neighbour_shared_values = (bool *) malloc(image_size * program_num_shared_neighbours);
+    for (size_t i = 0; i < image_size * program_num_shared_neighbours; i++) {
+        neighbour_shared_values[i] = false;
+    }
+    // Note: MEMORY_SIZE_IN_BITS
+    const size_t MEMORY_SIZE_IN_BITS = 24;
+    bool* local_memory_values = (bool *) malloc(image_size * MEMORY_SIZE_IN_BITS);
+    for (size_t i = 0; i < image_size * MEMORY_SIZE_IN_BITS; i++) {
+        local_memory_values[i] = false;
+    }
+    // Note: MAX_VLIW_WIDTH
+    const size_t MAX_VLIW_WIDTH = 4;
+    bool* carry_register = (bool *) malloc(image_size * program.vliwWidth);
+    for (size_t i = 0; i < image_size * program.vliwWidth; i++) {
+        carry_register[i] = false;
+    }
+    bool* external_values = (bool *) malloc(image_size * program_num_outputs);
+    for (size_t i = 0; i < image_size * program_num_outputs; i++) {
+        external_values[i] = false;
+    }
+    size_t pd_bit = 0;
+    bool pd_increment = false;
+    size_t output_number = 0;
+    bool output_number_increment = false;
+    size_t shared_neighbour_value = 0;
+    bool shared_neighbour_increment = false;
+
+    for (size_t i = 0; i < program.instructionCount; i++) {
+        for (size_t x = 0; x < image_x_dim; x++) {
+            for (size_t y = 0; y < image_y_dim; y++) {
+                size_t offset = x + y * image_x_dim;
+                bool result_values[MAX_VLIW_WIDTH];
+                for (size_t j = 0; j < MAX_VLIW_WIDTH; j++) {
+                    result_values[j] = false;
+                }
+                for (size_t j = 0; j < program.vliwWidth; j++) {
+                    const Instruction instruction = program.instructions[i * program.vliwWidth + j];
+                    if (instruction.isNop) {
+                        continue;
+                    }
+                    bool carryval = false;
+                    switch (instruction.carry) {
+                        case Carry::CR: carryval = carry_register[offset * program.vliwWidth + j]; break;
+                        case Carry::One: carryval = true; break;
+                        case Carry::Zero: carryval = false; break;
+                    }
+                    bool input_one = get_instruction_input_value_cpu(
+                        instruction.input1,
+                        local_memory_values + offset * MEMORY_SIZE_IN_BITS,
+                        pixels,
+                        pd_bit,
+                        &pd_increment,
+                        x,
+                        y,
+                        image_x_dim,
+                        image_y_dim,
+                        image_size,
+                        offset,
+                        neighbour_shared_values,
+                        program_num_shared_neighbours,
+                        shared_neighbour_value
+                    );
+                    bool input_two = get_instruction_input_value_cpu(
+                        instruction.input2,
+                        local_memory_values + offset * MEMORY_SIZE_IN_BITS,
+                        pixels,
+                        pd_bit,
+                        &pd_increment,
+                        x,
+                        y,
+                        image_x_dim,
+                        image_y_dim,
+                        image_size,
+                        offset,
+                        neighbour_shared_values,
+                        program_num_shared_neighbours,
+                        shared_neighbour_value
+                    );
+
+                    const bool sum = (input_one != input_two) != carryval;
+                    const bool carry = (carryval && (input_one != input_two)) || (input_one && input_two);
+                    
+                    result_values[j] = (instruction.resultType.value == 's') ? sum : carry;
+
+                    // Interesting choice...
+                    if (instruction.carry == Carry::CR) {
+                        carry_register[offset * program.vliwWidth + j] = carry;
+                    }
+                }
+
+                for (size_t j = 0; j < program.vliwWidth; j++) {
+                    const Instruction instruction = program.instructions[i * program.vliwWidth + j];
+                    if (instruction.isNop) {
+                        continue;
+                    }
+                    size_t resultvalue = result_values[j];
+                    switch (instruction.result.resultKind) {
+                        case ResultKind::Address:
+                            local_memory_values[offset * MEMORY_SIZE_IN_BITS + instruction.result.address] = resultvalue;
+                            break;
+                        case ResultKind::Neighbour:
+                            neighbour_shared_values[offset * program_num_shared_neighbours + shared_neighbour_value] = resultvalue;
+                            shared_neighbour_increment = true;
+                            break;
+                        case ResultKind::External:
+                            external_values[program_num_outputs * offset + output_number] = resultvalue;
+                            output_number_increment = true;
+                            break;
+                    }
+                }
+            }
+        }
+
+        if (pd_increment) {
+            pd_bit++;
+        }
+        pd_increment = false;
+
+        if (shared_neighbour_increment) {
+            shared_neighbour_value++;
+        }
+        shared_neighbour_increment = false;
+
+        if (output_number_increment) {
+            output_number++;
+        }
+        output_number_increment = false;
+    }
+
+    free(neighbour_shared_values);
+    free(local_memory_values);
+    free(carry_register);
+
+    // std::cout << "External values" << std::endl;
+    // for (size_t i = 0; i < image_size * program_num_outputs; i++) {
+    //     std::cout << "offset " << i << ": " << external_values[i] << std::endl;
+    // }
+
+    return external_values;
+}
 
 void testProgram(std::string programFilename, size_t vliwWidth, const char *imageFilename, size_t dimension, size_t num_bits, size_t expected_program_num_outputs, std::vector<std::vector<std::vector<bool>>> expected_image, std::vector<size_t>& timings, size_t timing_index, bool useGPU) {
     uint8_t* image = transform_image(imageFilename, dimension, num_bits);
-
     // Print image in binary form
     // std::cout << "Image (binary):" << std::endl;
     // for (size_t y = 0; y < dimension; y++) {
@@ -233,13 +439,16 @@ void testProgram(std::string programFilename, size_t vliwWidth, const char *imag
     bool *processed_image = nullptr;
     if (useGPU) {
         auto normal_start = std::chrono::high_resolution_clock::now();
-        processed_image = processImage(program, image, dimension, dimension);
+        processed_image = process_image_gpu(program, image, dimension, dimension);
         auto normal_stop = std::chrono::high_resolution_clock::now();
         size_t duration = std::chrono::duration_cast<std::chrono::microseconds>(normal_stop - normal_start).count();
         timings[timing_index] = duration;
     } else {
-        std::cout << "Processing on CPU" << std::endl;
-        return;
+        auto normal_start = std::chrono::high_resolution_clock::now();
+        processed_image = process_image_cpu(program, image, dimension, dimension);
+        auto normal_stop = std::chrono::high_resolution_clock::now();
+        size_t duration = std::chrono::duration_cast<std::chrono::microseconds>(normal_stop - normal_start).count();
+        timings[timing_index] = duration;
     }
 
     // HANDLE_ERROR(cudaEventRecord(stop, 0));
@@ -286,13 +495,14 @@ void testProgram(std::string programFilename, size_t vliwWidth, const char *imag
 
     if (test_passed) {
         // Logging when tests pass
-        // std::cout << programFilename << " test passed" << std::endl;
+        std::cout << programFilename << " test passed" << std::endl;
     } else {
         std::cout << programFilename << " test failed" << std::endl;
     }
 
     free(image);
-    free(program.instructions);
+    free(processed_image);
+    delete [] program.instructions;
 }
 
 
@@ -309,6 +519,7 @@ std::vector<std::vector<std::vector<bool>>> getExpectedImageForOneBitEdgeDetecti
             || (((j + 1 >= dimension) ? 0 : image[i * dimension + j + 1]) != val); 
         }
     }
+    free(image);
     return expected_image;
 }
 
@@ -325,6 +536,7 @@ std::vector<std::vector<std::vector<bool>>> getExpectedImageForOneBitThinning(co
             expected_image[i][j][0] = (count == 1 || count == 2) ? 0 : image[i * dimension + j];
         }
     }
+    free(image);
     return expected_image;
 }
 
@@ -342,6 +554,7 @@ std::vector<std::vector<std::vector<bool>>> getExpectedImageForOneBitSmoothing(c
             expected_image[i][j][0] = count >= 3;
         }
     }
+    free(image);
     return expected_image;
 }
 
@@ -377,7 +590,7 @@ std::vector<std::vector<std::vector<bool>>> getExpectedImageForPrewittEdgeDetect
     //     }
     //     std::cout << std::endl;
     // }
-
+    free(image);
     return expected_image;
 }
 
@@ -396,11 +609,11 @@ std::vector<std::vector<std::vector<bool>>> getExpectedImageForMultiBitSmoothing
             }
         }
     }
-
+    free(image);
     return expected_image;
 }
 
-size_t testAllPrograms(const char *imageFilename, size_t dimension, bool useGPU) {
+double testAllPrograms(const char *imageFilename, size_t dimension, bool useGPU) {
 
     uint8_t* image = transform_image(imageFilename, dimension, 1);
 
@@ -506,24 +719,30 @@ size_t testAllPrograms(const char *imageFilename, size_t dimension, bool useGPU)
             useGPU
         );
     }
+
+    free(image);
     
     // Compute average processing time and average frame rate
     size_t total_duration = 0;
     for (size_t i = 0; i < num_total_tests; i++) {
         total_duration += timings[i];
     }
-    return total_duration / num_total_tests;
+    return total_duration / ((double) num_total_tests);
 }
 
 int main() {
-    queryGPUProperties();
+    // queryGPUProperties();
 
     const char *imageFilename = "images/windmill_128.jpg";
     size_t dimension = 128;
 
-    size_t average_gpu_duration = testAllPrograms(imageFilename, dimension, true);
+    double average_gpu_duration = testAllPrograms(imageFilename, dimension, true);
     std::cout << "Average processing time (GPU): " << average_gpu_duration / 1000.0f << " ms" << std::endl;
     std::cout << "Average frame rate (GPU): " << 1000000.0f / average_gpu_duration << " fps" << std::endl;
+
+    double average_cpu_duration = testAllPrograms(imageFilename, dimension, false);
+    std::cout << "Average processing time (CPU): " << average_cpu_duration / 1000.0f << " ms" << std::endl;
+    std::cout << "Average frame rate (CPU): " << 1000000.0f / average_cpu_duration << " fps" << std::endl;
 
     return EXIT_SUCCESS;
 }

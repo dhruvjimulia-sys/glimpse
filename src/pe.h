@@ -10,6 +10,8 @@
 #define MAX_NUM_INSTRUCTIONS 500
 extern __constant__ char dev_instructions[sizeof(Instruction) * MAX_NUM_INSTRUCTIONS];
 
+__device__ __host__ bool getBitAt(uint8_t pixel_value, size_t bit_num);
+
 __global__ void processingElemKernel(
     size_t num_instructions,
     uint8_t* image,

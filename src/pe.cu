@@ -1,6 +1,6 @@
 #include "pe.h"
 
-__device__ bool getBitAt(uint8_t pixel_value, size_t bit_num) {
+__device__ __host__ bool getBitAt(uint8_t pixel_value, size_t bit_num) {
     if (bit_num >= 8) {
         printf("PD called more times than number of bits in image");
         return 0;
