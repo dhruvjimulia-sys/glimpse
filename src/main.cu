@@ -13,9 +13,6 @@
 #define STB_IMAGE_RESIZE_IMPLEMENTATION
 #include "stb/stb_image_resize2.h"
 
-using namespace std::chrono;
-
-
 uint8_t* transform_image(const char* filename, int new_dimension, int new_bits) {
     int width, height, channels;
     uint8_t* img_data = stbi_load(filename, &width, &height, &channels, 0);
@@ -184,7 +181,7 @@ bool *processImage(Program program, uint8_t* pixels, size_t image_x_dim, size_t 
 }
 
 
-void testProgram(std::string programFilename, size_t vliwWidth, const char *imageFilename, size_t dimension, size_t num_bits, size_t expected_program_num_outputs, std::vector<std::vector<std::vector<bool>>> expected_image) {
+void testProgram(std::string programFilename, size_t vliwWidth, const char *imageFilename, size_t dimension, size_t num_bits, size_t expected_program_num_outputs, std::vector<std::vector<std::vector<bool>>> expected_image, std::vector<size_t>& timings, size_t timing_index) {
     uint8_t* image = transform_image(imageFilename, dimension, num_bits);
 
     // Print image in binary form
@@ -225,34 +222,35 @@ void testProgram(std::string programFilename, size_t vliwWidth, const char *imag
     size_t program_num_outputs = numOutputs(program);
 
 
-    cudaEvent_t start, stop;
-    float elapsedTime;
+    // cudaEvent_t start, stop;
+    // float elapsedTime;
 
-    HANDLE_ERROR(cudaEventCreate(&start));
-    HANDLE_ERROR(cudaEventCreate(&stop));
+    // HANDLE_ERROR(cudaEventCreate(&start));
+    // HANDLE_ERROR(cudaEventCreate(&stop));
 
-    HANDLE_ERROR(cudaEventRecord(start, 0));
+    // HANDLE_ERROR(cudaEventRecord(start, 0));
 
     auto normal_start = std::chrono::high_resolution_clock::now();
 
     bool* processed_image = processImage(program, image, dimension, dimension);
 
-    auto normal_stop = high_resolution_clock::now();
+    auto normal_stop = std::chrono::high_resolution_clock::now();
 
-    HANDLE_ERROR(cudaEventRecord(stop, 0));
-    HANDLE_ERROR(cudaEventSynchronize(stop));
+    // HANDLE_ERROR(cudaEventRecord(stop, 0));
+    // HANDLE_ERROR(cudaEventSynchronize(stop));
 
-    HANDLE_ERROR(cudaEventElapsedTime(&elapsedTime, start, stop));
+    // HANDLE_ERROR(cudaEventElapsedTime(&elapsedTime, start, stop));
 
-    std::cout << "Processing time: " << elapsedTime << " ms" << std::endl;
-    float frameRate = 1000.0f / elapsedTime;
-    std::cout << "Frame rate: " << frameRate << " fps" << std::endl;
+    // std::cout << "Processing time: " << elapsedTime << " ms" << std::endl;
+    // std::cout << "Frame rate: " << 1000.0f / elapsedTime << " fps" << std::endl;
 
-    auto duration = duration_cast<microseconds>(normal_stop - normal_start);
-    std::cout << "Normal processing time: " << duration.count() << " microseconds" << std::endl;
-    
-    HANDLE_ERROR(cudaEventDestroy(start));
-    HANDLE_ERROR(cudaEventDestroy(stop));
+    size_t duration = std::chrono::duration_cast<std::chrono::microseconds>(normal_stop - normal_start).count();
+    timings[timing_index] = duration;
+    // std::cout << "Processing time: " << duration / 1000.0f << " ms" << std::endl;
+    // std::cout << "Frame rate: " << 1000000.0f / duration << " fps" << std::endl;
+
+    // HANDLE_ERROR(cudaEventDestroy(start));
+    // HANDLE_ERROR(cudaEventDestroy(stop));
 
     bool test_passed = true;
     for (size_t y = 0; y < dimension; y++) {
@@ -282,7 +280,8 @@ void testProgram(std::string programFilename, size_t vliwWidth, const char *imag
     // }
 
     if (test_passed) {
-        std::cout << programFilename << " test passed" << std::endl;
+        // Logging when tests pass
+        // std::cout << programFilename << " test passed" << std::endl;
     } else {
         std::cout << programFilename << " test failed" << std::endl;
     }
@@ -420,7 +419,13 @@ int main() {
     // }
 
     // Note: MAX_VLIW_WIDTH set to 4 in pe.cu
-    for (size_t vliwWidth = 1; vliwWidth <= 4; vliwWidth++) {
+    size_t min_vliw_width = 1;
+    size_t max_vliw_width = 4;
+    // Note: Need to change this if we need to add more tests
+    size_t NUM_TESTS = 5;
+    size_t num_total_tests = NUM_TESTS * (max_vliw_width - min_vliw_width + 1);
+    std::vector<size_t> timings(num_total_tests);
+    for (size_t vliwWidth = min_vliw_width; vliwWidth <= max_vliw_width; vliwWidth++) {
         std::string vliw_width_str = std::to_string(vliwWidth);
         testProgram(
             ("programs/" + vliw_width_str + "_vliw_slot/edge_detection_one_bit.vis").c_str(),
@@ -429,7 +434,9 @@ int main() {
             dimension,
             1,
             1,
-            getExpectedImageForOneBitEdgeDetection(imageFilename, 1, dimension, 1)
+            getExpectedImageForOneBitEdgeDetection(imageFilename, 1, dimension, 1),
+            timings,
+            (vliwWidth - min_vliw_width) * NUM_TESTS + 0
         );
 
         
@@ -440,7 +447,9 @@ int main() {
             dimension,
             1,
             1,
-            getExpectedImageForOneBitThinning(imageFilename, 1, dimension, 1)
+            getExpectedImageForOneBitThinning(imageFilename, 1, dimension, 1),
+            timings,
+            (vliwWidth - min_vliw_width) * NUM_TESTS + 1
         );
 
         testProgram(
@@ -450,7 +459,9 @@ int main() {
             dimension,
             1,
             1,
-            getExpectedImageForOneBitSmoothing(imageFilename, 1, dimension, 1)
+            getExpectedImageForOneBitSmoothing(imageFilename, 1, dimension, 1),
+            timings,
+            (vliwWidth - min_vliw_width) * NUM_TESTS + 2
         );
 
         /*
@@ -472,7 +483,9 @@ int main() {
             dimension,
             6,
             9,
-            getExpectedImageForPrewittEdgeDetection(imageFilename, 6, dimension, 9)
+            getExpectedImageForPrewittEdgeDetection(imageFilename, 6, dimension, 9),
+            timings,
+            (vliwWidth - min_vliw_width) * NUM_TESTS + 3
         );
 
         testProgram(
@@ -482,9 +495,20 @@ int main() {
             dimension,
             6,
             6,
-            getExpectedImageForMultiBitSmoothing(imageFilename, 6, dimension, 6)
+            getExpectedImageForMultiBitSmoothing(imageFilename, 6, dimension, 6),
+            timings,
+            (vliwWidth - min_vliw_width) * NUM_TESTS + 4
         );
     }
+    
+    // Compute average processing time and average frame rate
+    size_t total_duration = 0;
+    for (size_t i = 0; i < num_total_tests; i++) {
+        total_duration += timings[i];
+    }
+    size_t average_duration = total_duration / num_total_tests;
+    std::cout << "Average processing time: " << average_duration / 1000.0f << " ms" << std::endl;
+    std::cout << "Average frame rate: " << 1000000.0f / average_duration << " fps" << std::endl;
 
     return EXIT_SUCCESS;
 }
