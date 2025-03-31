@@ -8,6 +8,8 @@
 #include "utils/file_utils.h"
 #include "utils/program_utils.h"
 
+__constant__ char dev_instructions[sizeof(Instruction) * MAX_NUM_INSTRUCTIONS];
+
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb/stb_image.h"
 #define STB_IMAGE_RESIZE_IMPLEMENTATION
@@ -79,11 +81,14 @@ bool *processImage(Program program, uint8_t* pixels, size_t image_x_dim, size_t 
     // Maximum of value below is 32
     size_t num_threads_per_block_per_dim = 16;
     
-    // TODO make this CUDA memory constant as optimization
-    Instruction* dev_instructions;
+    // Non-constant memory version
+    // Instruction* dev_instructions;
+    // size_t instructions_mem_size = sizeof(Instruction) * program.instructionCount * program.vliwWidth;
+    // HANDLE_ERROR(cudaMalloc((void **) &dev_instructions, instructions_mem_size));
+    // HANDLE_ERROR(cudaMemcpy(dev_instructions, program.instructions, instructions_mem_size, cudaMemcpyHostToDevice));
+
     size_t instructions_mem_size = sizeof(Instruction) * program.instructionCount * program.vliwWidth;
-    HANDLE_ERROR(cudaMalloc((void **) &dev_instructions, instructions_mem_size));
-    HANDLE_ERROR(cudaMemcpy(dev_instructions, program.instructions, instructions_mem_size, cudaMemcpyHostToDevice));
+    HANDLE_ERROR(cudaMemcpyToSymbol(dev_instructions, (void *) program.instructions, instructions_mem_size));
 
     // read grayscale pixels from image and memcpy to cuda memory
     // TODO make this CUDA memory constant as optimization
@@ -133,7 +138,6 @@ bool *processImage(Program program, uint8_t* pixels, size_t image_x_dim, size_t 
     );
     dim3 threads(num_threads_per_block_per_dim, num_threads_per_block_per_dim);
     processingElemKernel<<<blocks, threads>>>(
-        dev_instructions,
         program.instructionCount,
         dev_image,
         dev_neighbour_shared_values,
@@ -170,7 +174,7 @@ bool *processImage(Program program, uint8_t* pixels, size_t image_x_dim, size_t 
     //     }
     // }
 
-    HANDLE_ERROR(cudaFree(dev_instructions));
+    // HANDLE_ERROR(cudaFree(dev_instructions));
     HANDLE_ERROR(cudaFree(dev_image));
     HANDLE_ERROR(cudaFree(dev_neighbour_shared_values));
     HANDLE_ERROR(cudaFree(dev_neighbour_program_counter));

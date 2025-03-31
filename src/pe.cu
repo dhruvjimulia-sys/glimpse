@@ -88,7 +88,6 @@ __device__ bool getInstructionInputValue(
 }
 
 __global__ void processingElemKernel(
-    Instruction* instructions,
     size_t num_instructions,
     uint8_t* image,
     bool* neighbour_shared_values,
@@ -134,7 +133,7 @@ __global__ void processingElemKernel(
 
         for (size_t i = 0; i < num_instructions; i++) {
             for (size_t j = 0; j < vliw_width; j++) { 
-                const Instruction instruction = instructions[i * vliw_width + j];
+                const Instruction instruction = ((Instruction *) dev_instructions)[i * vliw_width + j];
                 pc = i + 1;
                 if (instruction.isNop) {
                     continue;
@@ -207,7 +206,7 @@ __global__ void processingElemKernel(
             pd_increment = false;
 
             for (size_t j = 0; j < vliw_width; j++) {
-                const Instruction instruction = instructions[i * vliw_width + j];
+                const Instruction instruction = ((Instruction *) dev_instructions)[i * vliw_width + j];
                 if (instruction.isNop) {
                     continue;
                 }

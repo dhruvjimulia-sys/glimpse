@@ -6,8 +6,11 @@
 #include "utils/file_utils.h"
 #include "utils/program_utils.h"
 
+// Note: MAX_NUM_INSTRUCTIONS set here (program.instructionCount * program.vliwWidth must be less than or equal to this value) 
+#define MAX_NUM_INSTRUCTIONS 500
+extern __constant__ char dev_instructions[sizeof(Instruction) * MAX_NUM_INSTRUCTIONS];
+
 __global__ void processingElemKernel(
-    Instruction* instructions,
     size_t num_instructions,
     uint8_t* image,
     bool* neighbour_shared_values,
