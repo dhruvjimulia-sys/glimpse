@@ -9,17 +9,8 @@ __device__ __host__ bool getBitAt(uint8_t pixel_value, size_t bit_num) {
     }
 }
 
-__device__ void waitUntilAvailable(
-    cuda::atomic<int, cuda::thread_scope_device>* neighbour_program_counter,
-    size_t neighbour_pc,
-    int64_t index
-) {
-    while (neighbour_program_counter[index].load(cuda::std::memory_order_acquire) < neighbour_pc);
-}
-
 __device__ bool getNeighbourValue(
     cuda::atomic<int, cuda::thread_scope_device>* neighbour_program_counter,
-    size_t neighbour_update_pc,
     size_t neighbour_pc,
     bool* neighbour_shared_values,
     size_t neighbour_index,
@@ -61,8 +52,14 @@ __device__ bool getInstructionInputValue(
         case InputKind::Up:
             if (y - 1 >= 0) {
                 int64_t up_index = offset - image_x_dim;
-                waitUntilAvailable(neighbour_program_counter, neighbour_update_pc, up_index);
-                input_value = neighbour_shared_values[up_index * num_shared_neighbours + shared_neighbour_value - 1];
+                input_value = getNeighbourValue(
+                    neighbour_program_counter,
+                    neighbour_update_pc,
+                    neighbour_shared_values,
+                    up_index,
+                    num_shared_neighbours,
+                    shared_neighbour_value
+                );
             } else {
                 input_value = false;
             }
@@ -70,8 +67,14 @@ __device__ bool getInstructionInputValue(
         case InputKind::Down:
             if (y + 1 < image_y_dim) {
                 int64_t down_index = offset + image_x_dim;
-                waitUntilAvailable(neighbour_program_counter, neighbour_update_pc, down_index);
-                input_value = neighbour_shared_values[down_index * num_shared_neighbours + shared_neighbour_value - 1];
+                input_value = getNeighbourValue(
+                    neighbour_program_counter,
+                    neighbour_update_pc,
+                    neighbour_shared_values,
+                    down_index,
+                    num_shared_neighbours,
+                    shared_neighbour_value
+                );
             } else {
                 input_value = false;
             }
@@ -79,8 +82,14 @@ __device__ bool getInstructionInputValue(
         case InputKind::Right:
             if (x + 1 < image_x_dim) {
                 int64_t right_index = offset + 1;
-                waitUntilAvailable(neighbour_program_counter, neighbour_update_pc, right_index);
-                input_value = neighbour_shared_values[right_index * num_shared_neighbours + shared_neighbour_value - 1];
+                input_value = getNeighbourValue(
+                    neighbour_program_counter,
+                    neighbour_update_pc,
+                    neighbour_shared_values,
+                    right_index,
+                    num_shared_neighbours,
+                    shared_neighbour_value
+                );
             } else {
                 input_value = false;
             }
@@ -88,8 +97,14 @@ __device__ bool getInstructionInputValue(
         case InputKind::Left:
             if (x - 1 >= 0) {
                 int64_t left_index = offset - 1;
-                waitUntilAvailable(neighbour_program_counter, neighbour_update_pc, left_index);
-                input_value = neighbour_shared_values[left_index * num_shared_neighbours + shared_neighbour_value - 1];
+                input_value = getNeighbourValue(
+                    neighbour_program_counter,
+                    neighbour_update_pc,
+                    neighbour_shared_values,
+                    left_index,
+                    num_shared_neighbours,
+                    shared_neighbour_value
+                );
             } else {
                 input_value = false;
             }
