@@ -21,6 +21,10 @@ void queryGPUProperties() {
         std::cout << "\nDevice " << device << ": " << deviceProp.name << std::endl;
         std::cout << "  Compute capability: " << deviceProp.major << "." << deviceProp.minor << std::endl;
         std::cout << "  Total global memory: " << deviceProp.totalGlobalMem / (1024 * 1024) << " MB" << std::endl;
+        std::cout << "  Shared memory per block: " << deviceProp.sharedMemPerBlock / 1024 << " KB" << std::endl;
+        std::cout << "  Registers per block: " << deviceProp.regsPerBlock << std::endl;
+        std::cout << "  Warp size: " << deviceProp.warpSize << std::endl;
+        std::cout << "  Total constant memory: " << deviceProp.totalConstMem / 1024 << " KB" << std::endl;
         std::cout << "  Multiprocessors: " << deviceProp.multiProcessorCount << std::endl;
         std::cout << "  CUDA Cores/MP: " << (deviceProp.major == 8 ? 128 : 64) << " (Architecture-dependent)" << std::endl;
         std::cout << "  Total CUDA Cores: " << deviceProp.multiProcessorCount * (deviceProp.major == 8 ? 128 : 64) << std::endl;

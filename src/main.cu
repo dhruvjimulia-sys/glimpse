@@ -74,7 +74,7 @@ uint8_t* transform_image(const char* filename, int new_dimension, int new_bits) 
     return gray_data;
 }
 
-bool *process_image_gpu(Program program, uint8_t* pixels, size_t image_x_dim, size_t image_y_dim) {
+std::pair<bool *, float> process_image_gpu(Program program, uint8_t* pixels, size_t image_x_dim, size_t image_y_dim) {
     size_t program_num_outputs = numOutputs(program);
     size_t program_num_shared_neighbours = numSharedNeighbours(program);
 
@@ -91,7 +91,6 @@ bool *process_image_gpu(Program program, uint8_t* pixels, size_t image_x_dim, si
     HANDLE_ERROR(cudaMemcpyToSymbol(dev_instructions, (void *) program.instructions, instructions_mem_size));
 
     // read grayscale pixels from image and memcpy to cuda memory
-    // TODO make this CUDA memory constant as optimization
     size_t image_size = image_x_dim * image_y_dim;
     size_t image_mem_size = sizeof(uint8_t) * image_size;
     uint8_t* dev_image;
@@ -128,6 +127,14 @@ bool *process_image_gpu(Program program, uint8_t* pixels, size_t image_x_dim, si
     HANDLE_ERROR(cudaMalloc((void **) &dev_external_values, external_values_mem_size));
     HANDLE_ERROR(cudaMemset(dev_external_values, 0, external_values_mem_size));
 
+    cudaEvent_t start, stop;
+    float elapsedTime;
+    
+    HANDLE_ERROR(cudaEventCreate(&start));
+    HANDLE_ERROR(cudaEventCreate(&stop));
+        
+    HANDLE_ERROR(cudaEventRecord(start, 0));
+
     dim3 blocks(
         (image_x_dim + num_threads_per_block_per_dim - 1) / num_threads_per_block_per_dim,
         (image_y_dim + num_threads_per_block_per_dim - 1) / num_threads_per_block_per_dim
@@ -153,6 +160,12 @@ bool *process_image_gpu(Program program, uint8_t* pixels, size_t image_x_dim, si
 
     HANDLE_ERROR(cudaDeviceSynchronize());
 
+    HANDLE_ERROR(cudaEventRecord(stop, 0));
+    HANDLE_ERROR(cudaEventSynchronize(stop));
+
+    // Gets the elapsed time in milliseconds
+    HANDLE_ERROR(cudaEventElapsedTime(&elapsedTime, start, stop));
+
     bool* external_values = (bool *) malloc(external_values_mem_size);
     HANDLE_ERROR(cudaMemcpy(external_values, dev_external_values, external_values_mem_size, cudaMemcpyDeviceToHost));
 
@@ -177,7 +190,7 @@ bool *process_image_gpu(Program program, uint8_t* pixels, size_t image_x_dim, si
     HANDLE_ERROR(cudaFree(dev_external_values));
     // HANDLE_ERROR(cudaFree(dev_debug_output));
 
-    return external_values;
+    return {external_values, elapsedTime};
 }
 
 bool get_instruction_input_value_cpu(
@@ -242,7 +255,7 @@ bool get_instruction_input_value_cpu(
     return (inputc.negated) ? !input_value : input_value;
 }
 
-bool *process_image_cpu(Program program, uint8_t* pixels, size_t image_x_dim, size_t image_y_dim) {
+std::pair<bool *, float> process_image_cpu(Program program, uint8_t* pixels, size_t image_x_dim, size_t image_y_dim) {
     size_t program_num_outputs = numOutputs(program);
     size_t program_num_shared_neighbours = numSharedNeighbours(program);
     size_t image_size = image_x_dim * image_y_dim;
@@ -267,12 +280,14 @@ bool *process_image_cpu(Program program, uint8_t* pixels, size_t image_x_dim, si
     for (size_t i = 0; i < image_size * program_num_outputs; i++) {
         external_values[i] = false;
     }
-    size_t pd_bit = 0;
-    bool pd_increment = false;
     size_t output_number = 0;
     bool output_number_increment = false;
     size_t shared_neighbour_value = 0;
     bool shared_neighbour_increment = false;
+
+    auto start_time = std::chrono::high_resolution_clock::now();
+    size_t pd_bit = 0;
+    bool pd_increment = false;
 
     for (size_t i = 0; i < program.instructionCount; i++) {
         for (size_t x = 0; x < image_x_dim; x++) {
@@ -376,6 +391,10 @@ bool *process_image_cpu(Program program, uint8_t* pixels, size_t image_x_dim, si
         output_number_increment = false;
     }
 
+    auto stop_time = std::chrono::high_resolution_clock::now();
+    size_t duration = std::chrono::duration_cast<std::chrono::microseconds>(stop_time - start_time).count();
+    float durationInMilliseconds = duration / 1000.0f;
+
     free(neighbour_shared_values);
     free(local_memory_values);
     free(carry_register);
@@ -385,10 +404,21 @@ bool *process_image_cpu(Program program, uint8_t* pixels, size_t image_x_dim, si
     //     std::cout << "offset " << i << ": " << external_values[i] << std::endl;
     // }
 
-    return external_values;
+    return {external_values, durationInMilliseconds};
 }
 
-void testProgram(std::string programFilename, size_t vliwWidth, const char *imageFilename, size_t dimension, size_t num_bits, size_t expected_program_num_outputs, std::vector<std::vector<std::vector<bool>>> expected_image, std::vector<size_t>& timings, size_t timing_index, bool useGPU) {
+void testProgram(std::string programFilename,
+    size_t vliwWidth,
+    const char *imageFilename,
+    size_t dimension,
+    size_t num_bits,
+    size_t expected_program_num_outputs,
+    std::vector<std::vector<std::vector<bool>>> expected_image,
+    std::vector<float>& real_time_timings,
+    std::vector<float>& per_frame_timings,
+    size_t timing_index,
+    bool useGPU
+) {
     uint8_t* image = transform_image(imageFilename, dimension, num_bits);
     // Print image in binary form
     // std::cout << "Image (binary):" << std::endl;
@@ -439,16 +469,20 @@ void testProgram(std::string programFilename, size_t vliwWidth, const char *imag
     bool *processed_image = nullptr;
     if (useGPU) {
         auto normal_start = std::chrono::high_resolution_clock::now();
-        processed_image = process_image_gpu(program, image, dimension, dimension);
+        std::pair<bool *, float> process_image_result = process_image_gpu(program, image, dimension, dimension);
         auto normal_stop = std::chrono::high_resolution_clock::now();
-        size_t duration = std::chrono::duration_cast<std::chrono::microseconds>(normal_stop - normal_start).count();
-        timings[timing_index] = duration;
+        size_t real_time_duration = std::chrono::duration_cast<std::chrono::microseconds>(normal_stop - normal_start).count();
+        processed_image = process_image_result.first;
+        per_frame_timings[timing_index] = process_image_result.second;
+        real_time_timings[timing_index] = real_time_duration / 1000.0f;
     } else {
         auto normal_start = std::chrono::high_resolution_clock::now();
-        processed_image = process_image_cpu(program, image, dimension, dimension);
+        std::pair<bool *, float> process_image_result = process_image_cpu(program, image, dimension, dimension);
         auto normal_stop = std::chrono::high_resolution_clock::now();
-        size_t duration = std::chrono::duration_cast<std::chrono::microseconds>(normal_stop - normal_start).count();
-        timings[timing_index] = duration;
+        size_t real_time_duration = std::chrono::duration_cast<std::chrono::microseconds>(normal_stop - normal_start).count();
+        processed_image = process_image_result.first;
+        per_frame_timings[timing_index] = process_image_result.second;
+        real_time_timings[timing_index] = real_time_duration / 1000.0f;
     }
 
     // HANDLE_ERROR(cudaEventRecord(stop, 0));
@@ -613,7 +647,7 @@ std::vector<std::vector<std::vector<bool>>> getExpectedImageForMultiBitSmoothing
     return expected_image;
 }
 
-double testAllPrograms(const char *imageFilename, size_t dimension, bool useGPU) {
+std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dimension, bool useGPU) {
 
     uint8_t* image = transform_image(imageFilename, dimension, 1);
 
@@ -638,7 +672,8 @@ double testAllPrograms(const char *imageFilename, size_t dimension, bool useGPU)
     // Note: Need to change this if we need to add more tests
     size_t NUM_TESTS = 5;
     size_t num_total_tests = NUM_TESTS * (max_vliw_width - min_vliw_width + 1);
-    std::vector<size_t> timings(num_total_tests);
+    std::vector<float> real_time_timings(num_total_tests);
+    std::vector<float> per_frame_timings(num_total_tests);
     for (size_t vliwWidth = min_vliw_width; vliwWidth <= max_vliw_width; vliwWidth++) {
         std::string vliw_width_str = std::to_string(vliwWidth);
         testProgram(
@@ -649,7 +684,8 @@ double testAllPrograms(const char *imageFilename, size_t dimension, bool useGPU)
             1,
             1,
             getExpectedImageForOneBitEdgeDetection(imageFilename, 1, dimension, 1),
-            timings,
+            real_time_timings,
+            per_frame_timings,
             (vliwWidth - min_vliw_width) * NUM_TESTS + 0,
             useGPU
         );
@@ -663,7 +699,8 @@ double testAllPrograms(const char *imageFilename, size_t dimension, bool useGPU)
             1,
             1,
             getExpectedImageForOneBitThinning(imageFilename, 1, dimension, 1),
-            timings,
+            real_time_timings,
+            per_frame_timings,
             (vliwWidth - min_vliw_width) * NUM_TESTS + 1,
             useGPU
         );
@@ -676,7 +713,8 @@ double testAllPrograms(const char *imageFilename, size_t dimension, bool useGPU)
             1,
             1,
             getExpectedImageForOneBitSmoothing(imageFilename, 1, dimension, 1),
-            timings,
+            real_time_timings,
+            per_frame_timings,
             (vliwWidth - min_vliw_width) * NUM_TESTS + 2,
             useGPU
         );
@@ -701,7 +739,8 @@ double testAllPrograms(const char *imageFilename, size_t dimension, bool useGPU)
             6,
             9,
             getExpectedImageForPrewittEdgeDetection(imageFilename, 6, dimension, 9),
-            timings,
+            real_time_timings,
+            per_frame_timings,
             (vliwWidth - min_vliw_width) * NUM_TESTS + 3,
             useGPU
         );
@@ -714,7 +753,8 @@ double testAllPrograms(const char *imageFilename, size_t dimension, bool useGPU)
             6,
             6,
             getExpectedImageForMultiBitSmoothing(imageFilename, 6, dimension, 6),
-            timings,
+            real_time_timings,
+            per_frame_timings,
             (vliwWidth - min_vliw_width) * NUM_TESTS + 4,
             useGPU
         );
@@ -723,26 +763,33 @@ double testAllPrograms(const char *imageFilename, size_t dimension, bool useGPU)
     free(image);
     
     // Compute average processing time and average frame rate
-    size_t total_duration = 0;
+    double total_real_time_duration = 0;
+    double total_per_frame_duration = 0;
     for (size_t i = 0; i < num_total_tests; i++) {
-        total_duration += timings[i];
+        total_real_time_duration += (double) real_time_timings[i];
+        total_per_frame_duration += (double) per_frame_timings[i];
     }
-    return total_duration / ((double) num_total_tests);
+    return {total_real_time_duration / ((double) num_total_tests), total_per_frame_duration / ((double) num_total_tests)};
 }
 
 int main() {
-    // queryGPUProperties();
+    queryGPUProperties();
 
-    const char *imageFilename = "images/windmill_128.jpg";
-    size_t dimension = 128;
+    const char *imageFilename = "images/windmill_400.jpg";
+    size_t dimension = 400;
 
-    double average_gpu_duration = testAllPrograms(imageFilename, dimension, true);
-    std::cout << "Average processing time (GPU): " << average_gpu_duration / 1000.0f << " ms" << std::endl;
-    std::cout << "Average frame rate (GPU): " << 1000000.0f / average_gpu_duration << " fps" << std::endl;
+    std::pair<double, double> gpu_tests_result = testAllPrograms(imageFilename, dimension, true);
+    std::cout << "Average real-time processing time (GPU): " << gpu_tests_result.first << " ms" << std::endl;
+    std::cout << "Average real-time frame rate (GPU): " << 1000.0f / gpu_tests_result.first << " fps" << std::endl;
+    std::cout << "Average per-frame processing time (GPU): " << gpu_tests_result.second << " ms" << std::endl;
+    std::cout << "Average per-frame frame rate (GPU): " << 1000.0f / gpu_tests_result.second << " fps" << std::endl;
 
-    double average_cpu_duration = testAllPrograms(imageFilename, dimension, false);
-    std::cout << "Average processing time (CPU): " << average_cpu_duration / 1000.0f << " ms" << std::endl;
-    std::cout << "Average frame rate (CPU): " << 1000000.0f / average_cpu_duration << " fps" << std::endl;
+    // TODO Assuming no cache effects
+    std::pair<double, double> cpu_tests_result = testAllPrograms(imageFilename, dimension, false);
+    std::cout << "Average processing time (CPU): " << cpu_tests_result.first << " ms" << std::endl;
+    std::cout << "Average frame rate (CPU): " << 1000.0f / cpu_tests_result.first << " fps" << std::endl;
+    std::cout << "Average per-frame processing time (CPU): " << cpu_tests_result.second << " ms" << std::endl;
+    std::cout << "Average per-frame frame rate (CPU): " << 1000.0f / cpu_tests_result.second << " fps" << std::endl;
 
     return EXIT_SUCCESS;
 }
