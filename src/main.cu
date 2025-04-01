@@ -74,12 +74,9 @@ uint8_t* transform_image(const char* filename, int new_dimension, int new_bits) 
     return gray_data;
 }
 
-std::pair<bool *, float> process_image_gpu(Program program, uint8_t* pixels, size_t image_x_dim, size_t image_y_dim) {
+std::pair<bool *, float> process_image_gpu(Program program, uint8_t* pixels, size_t image_x_dim, size_t image_y_dim, bool use_shared_memory) {
     size_t program_num_outputs = numOutputs(program);
     size_t program_num_shared_neighbours = numSharedNeighbours(program);
-
-    // Maximum of value below is 32
-    size_t num_threads_per_block_per_dim = 16;
     
     // Non-constant memory version
     // Instruction* dev_instructions;
@@ -136,10 +133,10 @@ std::pair<bool *, float> process_image_gpu(Program program, uint8_t* pixels, siz
     HANDLE_ERROR(cudaEventRecord(start, 0));
 
     dim3 blocks(
-        (image_x_dim + num_threads_per_block_per_dim - 1) / num_threads_per_block_per_dim,
-        (image_y_dim + num_threads_per_block_per_dim - 1) / num_threads_per_block_per_dim
+        (image_x_dim + NUM_THREADS_PER_BLOCK_PER_DIM - 1) / NUM_THREADS_PER_BLOCK_PER_DIM,
+        (image_y_dim + NUM_THREADS_PER_BLOCK_PER_DIM - 1) / NUM_THREADS_PER_BLOCK_PER_DIM
     );
-    dim3 threads(num_threads_per_block_per_dim, num_threads_per_block_per_dim);
+    dim3 threads(NUM_THREADS_PER_BLOCK_PER_DIM, NUM_THREADS_PER_BLOCK_PER_DIM);
     processingElemKernel<<<blocks, threads>>>(
         program.instructionCount,
         dev_image,
@@ -153,7 +150,8 @@ std::pair<bool *, float> process_image_gpu(Program program, uint8_t* pixels, siz
         program_num_shared_neighbours,
         dev_debug_output,
         num_debug_outputs,
-        program.vliwWidth
+        program.vliwWidth,
+        use_shared_memory
     );
 
     HANDLE_ERROR(cudaPeekAtLastError());
@@ -469,7 +467,7 @@ void testProgram(std::string programFilename,
     bool *processed_image = nullptr;
     if (useGPU) {
         auto normal_start = std::chrono::high_resolution_clock::now();
-        std::pair<bool *, float> process_image_result = process_image_gpu(program, image, dimension, dimension);
+        std::pair<bool *, float> process_image_result = process_image_gpu(program, image, dimension, dimension, true);
         auto normal_stop = std::chrono::high_resolution_clock::now();
         size_t real_time_duration = std::chrono::duration_cast<std::chrono::microseconds>(normal_stop - normal_start).count();
         processed_image = process_image_result.first;
@@ -779,15 +777,15 @@ int main() {
     size_t dimension = 400;
 
     std::pair<double, double> gpu_tests_result = testAllPrograms(imageFilename, dimension, true);
-    std::cout << "Average real-time processing time (GPU): " << gpu_tests_result.first << " ms" << std::endl;
-    std::cout << "Average real-time frame rate (GPU): " << 1000.0f / gpu_tests_result.first << " fps" << std::endl;
+    // std::cout << "Average real-time processing time (GPU): " << gpu_tests_result.first << " ms" << std::endl;
+    // std::cout << "Average real-time frame rate (GPU): " << 1000.0f / gpu_tests_result.first << " fps" << std::endl;
     std::cout << "Average per-frame processing time (GPU): " << gpu_tests_result.second << " ms" << std::endl;
     std::cout << "Average per-frame frame rate (GPU): " << 1000.0f / gpu_tests_result.second << " fps" << std::endl;
 
     // TODO Assuming no cache effects
     std::pair<double, double> cpu_tests_result = testAllPrograms(imageFilename, dimension, false);
-    std::cout << "Average processing time (CPU): " << cpu_tests_result.first << " ms" << std::endl;
-    std::cout << "Average frame rate (CPU): " << 1000.0f / cpu_tests_result.first << " fps" << std::endl;
+    // std::cout << "Average processing time (CPU): " << cpu_tests_result.first << " ms" << std::endl;
+    // std::cout << "Average frame rate (CPU): " << 1000.0f / cpu_tests_result.first << " fps" << std::endl;
     std::cout << "Average per-frame processing time (CPU): " << cpu_tests_result.second << " ms" << std::endl;
     std::cout << "Average per-frame frame rate (CPU): " << 1000.0f / cpu_tests_result.second << " fps" << std::endl;
 

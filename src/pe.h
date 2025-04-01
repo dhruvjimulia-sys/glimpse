@@ -10,6 +10,9 @@
 #define MAX_NUM_INSTRUCTIONS 500
 extern __constant__ char dev_instructions[sizeof(Instruction) * MAX_NUM_INSTRUCTIONS];
 
+// Maximum of value below is 32
+#define NUM_THREADS_PER_BLOCK_PER_DIM 16
+
 __device__ __host__ bool getBitAt(uint8_t pixel_value, size_t bit_num);
 
 __global__ void processingElemKernel(
@@ -25,5 +28,6 @@ __global__ void processingElemKernel(
     size_t num_shared_neighbours,
     size_t* debug_output,
     size_t num_debug_outputs,
-    size_t vliw_width
+    size_t vliw_width,
+    bool use_shared_memory
 );

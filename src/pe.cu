@@ -10,13 +10,24 @@ __device__ __host__ bool getBitAt(uint8_t pixel_value, size_t bit_num) {
 }
 
 __device__ void waitUntilAvailable(
-    bool* neighbour_shared_values,
     cuda::atomic<int, cuda::thread_scope_device>* neighbour_program_counter,
     size_t neighbour_pc,
-    int64_t index,
-    size_t image_size
+    int64_t index
 ) {
     while (neighbour_program_counter[index].load(cuda::std::memory_order_acquire) < neighbour_pc);
+}
+
+__device__ bool getNeighbourValue(
+    cuda::atomic<int, cuda::thread_scope_device>* neighbour_program_counter,
+    size_t neighbour_update_pc,
+    size_t neighbour_pc,
+    bool* neighbour_shared_values,
+    size_t neighbour_index,
+    size_t num_shared_neighbours,
+    size_t shared_neighbour_value
+) {
+    while (neighbour_program_counter[neighbour_index].load(cuda::std::memory_order_acquire) < neighbour_pc);
+    return neighbour_shared_values[neighbour_index * num_shared_neighbours + shared_neighbour_value - 1];
 }
 
 __device__ bool getInstructionInputValue(
@@ -35,7 +46,9 @@ __device__ bool getInstructionInputValue(
     bool* neighbour_shared_values,
     size_t neighbour_update_pc,
     size_t num_shared_neighbours,
-    size_t shared_neighbour_value
+    size_t shared_neighbour_value,
+    bool use_shared_memory,
+    bool* neighbour_shared_values_cache
 ) {
     bool input_value = false;
     switch (inputc.input.inputKind) {
@@ -48,7 +61,7 @@ __device__ bool getInstructionInputValue(
         case InputKind::Up:
             if (y - 1 >= 0) {
                 int64_t up_index = offset - image_x_dim;
-                waitUntilAvailable(neighbour_shared_values, neighbour_program_counter, neighbour_update_pc, up_index, image_size);
+                waitUntilAvailable(neighbour_program_counter, neighbour_update_pc, up_index);
                 input_value = neighbour_shared_values[up_index * num_shared_neighbours + shared_neighbour_value - 1];
             } else {
                 input_value = false;
@@ -57,7 +70,7 @@ __device__ bool getInstructionInputValue(
         case InputKind::Down:
             if (y + 1 < image_y_dim) {
                 int64_t down_index = offset + image_x_dim;
-                waitUntilAvailable(neighbour_shared_values, neighbour_program_counter, neighbour_update_pc, down_index, image_size);
+                waitUntilAvailable(neighbour_program_counter, neighbour_update_pc, down_index);
                 input_value = neighbour_shared_values[down_index * num_shared_neighbours + shared_neighbour_value - 1];
             } else {
                 input_value = false;
@@ -66,7 +79,7 @@ __device__ bool getInstructionInputValue(
         case InputKind::Right:
             if (x + 1 < image_x_dim) {
                 int64_t right_index = offset + 1;
-                waitUntilAvailable(neighbour_shared_values, neighbour_program_counter, neighbour_update_pc, right_index, image_size);
+                waitUntilAvailable(neighbour_program_counter, neighbour_update_pc, right_index);
                 input_value = neighbour_shared_values[right_index * num_shared_neighbours + shared_neighbour_value - 1];
             } else {
                 input_value = false;
@@ -75,7 +88,7 @@ __device__ bool getInstructionInputValue(
         case InputKind::Left:
             if (x - 1 >= 0) {
                 int64_t left_index = offset - 1;
-                waitUntilAvailable(neighbour_shared_values, neighbour_program_counter, neighbour_update_pc, left_index, image_size);
+                waitUntilAvailable(neighbour_program_counter, neighbour_update_pc, left_index);
                 input_value = neighbour_shared_values[left_index * num_shared_neighbours + shared_neighbour_value - 1];
             } else {
                 input_value = false;
@@ -100,7 +113,8 @@ __global__ void processingElemKernel(
     size_t num_shared_neighbours,
     size_t* debug_output,
     size_t num_debug_outputs,
-    size_t vliw_width
+    size_t vliw_width,
+    bool use_shared_memory
 ) {
     size_t x = threadIdx.x + blockIdx.x * blockDim.x;
     size_t y = threadIdx.y + blockIdx.y * blockDim.y;
@@ -109,6 +123,12 @@ __global__ void processingElemKernel(
     if (offset < image_size) {
         // image_x, image_y in image space
         // x, y in thread/block space
+        __shared__ bool neighbour_shared_values_cache[NUM_THREADS_PER_BLOCK_PER_DIM][NUM_THREADS_PER_BLOCK_PER_DIM];
+        // if (use_shared_memory) {
+        //     neighbour_shared_values_cache[threadIdx.y][threadIdx.x] = false;
+        //     __syncthreads();
+        // }
+
         size_t image_x = offset % image_x_dim;
         size_t image_y = offset / image_x_dim;
         const size_t MEMORY_SIZE_IN_BITS = 24;
@@ -160,7 +180,9 @@ __global__ void processingElemKernel(
                     neighbour_shared_values,
                     neighbour_update_pc,
                     num_shared_neighbours,
-                    shared_neighbour_value
+                    shared_neighbour_value,
+                    use_shared_memory,
+                    (bool *) neighbour_shared_values_cache
                 );
                 bool input_two = getInstructionInputValue(
                     instruction.input2,
@@ -178,7 +200,9 @@ __global__ void processingElemKernel(
                     neighbour_shared_values,
                     neighbour_update_pc,
                     num_shared_neighbours,
-                    shared_neighbour_value
+                    shared_neighbour_value,
+                    use_shared_memory,
+                    (bool *) neighbour_shared_values_cache
                 );
 
                 // printf("offset: %lu, instruction: %lu, input_one: %d, carryval: %d, input_two: %d\n", offset, i, input_one, carryval, input_two);
