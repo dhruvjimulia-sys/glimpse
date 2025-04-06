@@ -57,6 +57,7 @@ double getComputeArea(size_t vliwWidth) {
 
 double getComputeSubthresholdLeakage(size_t vliwWidth) {
     TechnologyParameter g_tp = getTechnologyParams(TARGET_TECHNOLOGY);
+    // TODO correct units with area?
     return getComputeArea(vliwWidth) * g_tp.scaling_factor.core_tx_density *
            cmos_Isub_leakage(
                20 * g_tp.min_w_nmos_,
@@ -67,6 +68,7 @@ double getComputeSubthresholdLeakage(size_t vliwWidth) {
 
 double getComputeGateLeakage(size_t vliwWidth) {
     TechnologyParameter g_tp = getTechnologyParams(TARGET_TECHNOLOGY);
+    // TODO correct units with area?
     return getComputeArea(vliwWidth) * g_tp.scaling_factor.core_tx_density *
            cmos_Ig_leakage(20 * g_tp.min_w_nmos_,
                            20 * g_tp.min_w_nmos_ * pmos_to_nmos_sz_ratio(g_tp),
