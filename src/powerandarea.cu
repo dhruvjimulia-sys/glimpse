@@ -20,8 +20,8 @@
 // From Skywater 130nm PDK
 #define SOURCE_DATA_TECHNOLOGY 130  // 130nm
 // TODO Copy correct values here
-#define AREA_OF_FULL_ADDER_130_NM 0.0000001   // 0.1 mm^2
-#define AREA_OF_MULTIPLEXER_130_NM 0.0000001  // 0.1 mm^2
+#define AREA_OF_FULL_ADDER_130_NM 20.0192    // in um^2
+#define AREA_OF_MULTIPLEXER_130_NM 11.2608  // in um^2
 
 #define NUMBER_TECH_FLAVORS 4
 
@@ -48,16 +48,16 @@ double cmos_Isub_leakage(double nWidth, double pWidth,
 double getComputeArea(size_t vliwWidth) {
     double oneComputeUnitArea = scaleAreaBasedOnTechnology(
         AREA_OF_FULL_ADDER_130_NM * 4 + AREA_OF_MULTIPLEXER_130_NM,
-        SOURCE_DATA_TECHNOLOGY, TARGET_TECHNOLOGY);  // in mm^2
+        SOURCE_DATA_TECHNOLOGY, TARGET_TECHNOLOGY);  // in um^2
     double computeArea =
         oneComputeUnitArea * vliwWidth *
         getLogicScalingFactor(SOURCE_DATA_TECHNOLOGY, TARGET_TECHNOLOGY);
-    return computeArea;  // in mm^2
+    return computeArea;  // in um^2
 }
 
 double getComputeSubthresholdLeakage(size_t vliwWidth) {
     TechnologyParameter g_tp = getTechnologyParams(TARGET_TECHNOLOGY);
-    // TODO correct units with area?
+    // area must be in um^2
     return getComputeArea(vliwWidth) * g_tp.scaling_factor.core_tx_density *
            cmos_Isub_leakage(
                20 * g_tp.min_w_nmos_,
@@ -68,7 +68,7 @@ double getComputeSubthresholdLeakage(size_t vliwWidth) {
 
 double getComputeGateLeakage(size_t vliwWidth) {
     TechnologyParameter g_tp = getTechnologyParams(TARGET_TECHNOLOGY);
-    // TODO correct units with area?
+    // area must be in um^2
     return getComputeArea(vliwWidth) * g_tp.scaling_factor.core_tx_density *
            cmos_Ig_leakage(20 * g_tp.min_w_nmos_,
                            20 * g_tp.min_w_nmos_ * pmos_to_nmos_sz_ratio(g_tp),
