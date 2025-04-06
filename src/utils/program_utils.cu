@@ -19,3 +19,13 @@ size_t numSharedNeighbours(Program program) {
     }
     return num_shared_neighbours;
 }
+
+size_t numComputeAccesses(Program program) {
+    size_t num_compute_accesses = 0;
+    for (int i = 0; i < program.instructionCount * program.vliwWidth; i++) {
+        if (!program.instructions[i].isNop) {
+            num_compute_accesses++;
+        }
+    }
+    return num_compute_accesses;
+}

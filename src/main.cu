@@ -527,7 +527,7 @@ void testProgram(std::string programFilename,
 
     if (test_passed) {
         // Logging when tests pass
-        std::cout << programFilename << " test passed" << std::endl;
+        std::cout << programFilename << " test passed with frame rate " << 1000.0f / per_frame_timings[timing_index] << " fps" << std::endl;
     } else {
         std::cout << programFilename << " test failed" << std::endl;
     }
@@ -773,8 +773,8 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
 int main() {
     queryGPUProperties();
 
-    const char *imageFilename = "images/windmill_400.jpg";
-    size_t dimension = 400;
+    const char *imageFilename = "images/windmill_128.jpg";
+    size_t dimension = 128;
 
     std::pair<double, double> gpu_tests_result = testAllPrograms(imageFilename, dimension, true);
     // std::cout << "Average real-time processing time (GPU): " << gpu_tests_result.first << " ms" << std::endl;
