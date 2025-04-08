@@ -3,6 +3,23 @@
 #include <cstddef>
 #include <cstdint>
 
+// Memory area and power functions
+// Access time (ns): 0.435422
+// Cycle time (ns):  0.327345
+// Total dynamic read energy per access (nJ): 0.00105031
+// Total dynamic write energy per access (nJ): 0.00138934
+// Total leakage power of a bank (mW): 0.0879501
+// Total gate leakage power of a bank (mW): 0.0137374
+// Cache height x width (mm): 0.204824 x 0.0508967
+struct CACTIResult {
+    double dynamic_read_energy_per_access;
+    double dynamic_write_energy_per_access;
+    double leakage_power;
+    double gate_leakage_power;
+    double height;
+    double width;
+};
+
 class TechnologyParameter {
    public:
     class DeviceType {

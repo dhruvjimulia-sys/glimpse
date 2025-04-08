@@ -2,6 +2,8 @@
 
 #include <cmath>
 #include <iostream>
+#include <fstream>
+#include <sstream>
 
 #include "isa.h"
 #include "utils/program_utils.h"
@@ -9,12 +11,15 @@
 #define NANO_ORDER_OF_MAGNITUDE 1e9
 
 // From latest SRVC paper
+// ASSUME neighbour-to-neighbour communication bottleneck + more assumptions
+// ASSUME no interconnect area and power
+// ASSUME no ADC and photodetector area and power
 #define CLOCK_FREQUENCY 2e8  // 200 MHz
-// assuming neighbour-to-neighbour communication
+// ASSUME neighbour-to-neighbour communication
 #define TARGET_TECHNOLOGY 65  // 65nm
 #define SUPPLY_VOLTAGE 1.0    // 1V
 #define TEMPERATURE \
-    360  // in K // must be a multiple of 10 // and must be between 300 and 400
+    300  // in K // must be a multiple of 10 // and must be between 300 and 400
          // inclusive
 
 // From Skywater 130nm PDK
@@ -24,6 +29,9 @@
 #define AREA_OF_MULTIPLEXER_130_NM 11.2608  // in um^2
 
 #define NUMBER_TECH_FLAVORS 4
+
+#define MEMORY_MULTIPLIER 16
+#define REGISTER_MULTIPLIER 128
 
 enum ram_cell_tech_type_num {
     itrs_hp = 0,
@@ -43,6 +51,7 @@ double getLogicScalingFactor(size_t source_technology, size_t target_technology)
 double cmos_Ig_leakage(double nWidth, double pWidth, TechnologyParameter g_tp);
 double cmos_Isub_leakage(double nWidth, double pWidth,
     TechnologyParameter g_tp);
+CACTIResult getCACTIResult(std::string filename, size_t vliwWidth);
 
 // Compute area and power functions
 double getComputeArea(size_t vliwWidth) {
@@ -81,22 +90,46 @@ double getComputeDynamicPower(Program program) {
         (1.15 / 3 / 1e9 / 4 / 1.3 / 1.3 * SUPPLY_VOLTAGE * SUPPLY_VOLTAGE *
          (TARGET_TECHNOLOGY / 90.0)) /
         64;  // This is per cycle energy(nJ)
-    return (numComputeAccesses(program) * per_access_energy * CLOCK_FREQUENCY) /
+    // CLOCK_FREQUENCY needs to be divided in four to get effective clock frequency for ALU (in non-pipelining case)
+    return (numComputeAccesses(program) * per_access_energy * (CLOCK_FREQUENCY / 4)) /
            NANO_ORDER_OF_MAGNITUDE;  // in W
 }
 
-// Memory area and power functions
 double getMemoryArea(size_t vliwWidth) {
-    // 36 bits of memory (32 bits + DFF + 3 latches, assume memory-mapped I/O as
-    // memory)
-    return 0;
+    CACTIResult memoryResult = getCACTIResult("cacti/memory.cfg", vliwWidth);
+    CACTIResult registersResult = getCACTIResult("cacti/registers.cfg", vliwWidth);
+    return (memoryResult.height * memoryResult.width) / MEMORY_MULTIPLIER +
+           (registersResult.height * registersResult.width) / REGISTER_MULTIPLIER;
 }
 
-double getMemorySubthresholdLeakage(size_t vliwWidth) { return 0; }
+double getMemorySubthresholdLeakage(size_t vliwWidth) {
+    CACTIResult memoryResult = getCACTIResult("cacti/memory.cfg", vliwWidth);
+    CACTIResult registersResult = getCACTIResult("cacti/registers.cfg", vliwWidth);
+    return memoryResult.leakage_power / MEMORY_MULTIPLIER +
+           registersResult.leakage_power / REGISTER_MULTIPLIER;
+}
 
-double getMemoryGateLeakage(size_t vliwWidth) { return 0; }
+double getMemoryGateLeakage(size_t vliwWidth) {
+    CACTIResult memoryResult = getCACTIResult("cacti/memory.cfg", vliwWidth);
+    CACTIResult registersResult = getCACTIResult("cacti/registers.cfg", vliwWidth);
+    return memoryResult.gate_leakage_power / MEMORY_MULTIPLIER +
+           registersResult.gate_leakage_power / REGISTER_MULTIPLIER;
+}
 
-double getMemoryDynamicPower(Program program) { return 0; }
+double getMemoryDynamicPower(Program program) {
+    CACTIResult memoryResult = getCACTIResult("cacti/memory.cfg", program.vliwWidth);
+    CACTIResult registersResult =
+        getCACTIResult("cacti/registers.cfg", program.vliwWidth);
+    // Use functions from program_utils
+    return (memoryResult.dynamic_read_energy_per_access *
+           numMemoryReadAccesses(program) +
+           memoryResult.dynamic_write_energy_per_access *
+               numMemoryWriteAccesses(program)) / MEMORY_MULTIPLIER +
+           (registersResult.dynamic_read_energy_per_access *
+               numRegisterReadAccesses(program) +
+           registersResult.dynamic_write_energy_per_access *
+               numRegisterWriteAccesses(program)) / REGISTER_MULTIPLIER;
+}
 
 // Technology scaling parameters below taken from McPAT
 // scaling_factor.logic_scaling_co_eff
@@ -888,6 +921,91 @@ TechnologyParameter getTechnologyParams(int technology) {
             curr_alpha * I_g_on_n[TECH_TYPE][TEMPERATURE - 300];
     }
     return g_tp;
+}
+
+CACTIResult getCACTIResult(std::string filename, size_t vliwWidth) {
+    // Read CACTI input file "filename" 
+    std::ifstream file(filename);
+    std::string fileContent;
+    if (file.is_open()) {
+        std::stringstream buffer;
+        buffer << file.rdbuf();
+        fileContent = buffer.str();
+        file.close();
+    } else {
+        std::cerr << "Unable to open file: " << filename << std::endl;
+        exit(1);
+    }
+
+    // Replace all instances of ${VLIW} in the file with the actual vliwWidth
+    size_t pos = fileContent.find("${VLIW}");
+    while (pos != std::string::npos) {
+        fileContent.replace(pos, strlen("${VLIW}"), std::to_string(vliwWidth));
+        pos = fileContent.find("${VLIW}", pos + std::to_string(vliwWidth).length());
+    }
+
+    // Write modified input to a temporary file
+    std::string tempFilename = filename + ".tmp";
+    // Create the temporary file if it does not exist
+    std::ofstream ofs(tempFilename, std::ios::app);
+    ofs.close();
+    std::ofstream tempFile(tempFilename);
+    if (tempFile.is_open()) {
+        tempFile << fileContent;
+        tempFile.close();
+    } else {
+        std::cerr << "Unable to open temporary file: " << tempFilename << std::endl;
+        exit(1);
+    }
+
+    // Execute CACTI program with the input file and pipe output to output file
+    std::string outputFilename = filename + ".out";
+    std::string command = "./cacti/cacti -infile " + tempFilename + " > " + outputFilename;
+    int result_code = system(command.c_str());
+    if (result_code != 0) {
+        std::cerr << "CACTI execution failed with code: " << result_code << std::endl;
+        exit(1);
+    }
+
+    // Read CACTI output file "output_file" and parse the results
+    std::ifstream output_file(outputFilename);
+    std::string line;
+    CACTIResult result;
+
+    if (output_file.is_open()) {
+        while (getline(output_file, line)) {
+            if (line.find("Access time (ns):") != std::string::npos) {
+                // Not used
+            } else if (line.find("Cycle time (ns):") != std::string::npos) {
+                // Not used
+            } else if (line.find("Total dynamic read energy per access (nJ):") != std::string::npos) {
+                std::string value = line.substr(line.find(":") + 1);
+                result.dynamic_read_energy_per_access = std::stod(value);
+            } else if (line.find("Total dynamic write energy per access (nJ):") != std::string::npos) {
+                std::string value = line.substr(line.find(":") + 1);
+                result.dynamic_write_energy_per_access = std::stod(value);
+            } else if (line.find("Total leakage power of a bank (mW):") != std::string::npos) {
+                std::string value = line.substr(line.find(":") + 1);
+                result.leakage_power = std::stod(value);
+            } else if (line.find("Total gate leakage power of a bank (mW):") != std::string::npos) {
+                std::string value = line.substr(line.find(":") + 1);
+                result.gate_leakage_power = std::stod(value);
+            } else if (line.find("Cache height x width (mm):") != std::string::npos) {
+                std::string value = line.substr(line.find(":") + 1);
+                std::stringstream ss(value);
+                std::string height_str, width_str;
+                getline(ss, height_str, 'x');
+                getline(ss, width_str);
+                result.height = std::stod(height_str);
+                result.width = std::stod(width_str);
+            }
+        }
+        output_file.close();
+    } else {
+        std::cerr << "Unable to open file: " << outputFilename << std::endl;
+        exit(1);
+    }
+    return result;
 }
 
 double pmos_to_nmos_sz_ratio(TechnologyParameter g_tp) {
