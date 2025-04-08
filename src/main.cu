@@ -7,6 +7,7 @@
 #include "utils/cuda_utils.h"
 #include "utils/file_utils.h"
 #include "utils/program_utils.h"
+#include "powerandarea.h"
 
 __constant__ char dev_instructions[sizeof(Instruction) * MAX_NUM_INSTRUCTIONS];
 
@@ -532,6 +533,25 @@ void testProgram(std::string programFilename,
         std::cout << programFilename << " test failed" << std::endl;
     }
 
+    // Print power and area
+    double computeArea = getComputeArea(program.vliwWidth) * dimension * dimension;
+    double memoryArea = getMemoryArea(program.vliwWidth) * dimension * dimension;
+    double computeDynPower = getComputeDynamicPower(program) * dimension * dimension;
+    double memoryDynPower = getMemoryDynamicPower(program) * dimension * dimension;
+    double computeSubThreshLeakage = getComputeSubthresholdLeakage(program.vliwWidth) * dimension * dimension;
+    double memorySubThreshLeakage = getMemorySubthresholdLeakage(program.vliwWidth) * dimension * dimension;
+    double computeGateLeakage = getComputeGateLeakage(program.vliwWidth) * dimension * dimension;
+    double memoryGateLeakage = getMemoryGateLeakage(program.vliwWidth) * dimension * dimension;
+
+    std::cout << "Compute Area: " << computeArea << " um^2" << std::endl;
+    std::cout << "Memory Area: " << memoryArea << " um^2" << std::endl;
+    std::cout << "Compute Dynamic Power: " << computeDynPower << " W" << std::endl;
+    std::cout << "Memory Dynamic Power: " << memoryDynPower << " W" << std::endl;
+    std::cout << "Compute Subthreshold Leakage: " << computeSubThreshLeakage << " W" << std::endl;
+    std::cout << "Memory Subthreshold Leakage: " << memorySubThreshLeakage << " W" << std::endl;
+    std::cout << "Compute Gate Leakage: " << computeGateLeakage << " W" << std::endl;
+    std::cout << "Memory Gate Leakage: " << memoryGateLeakage << " W" << std::endl;
+
     free(image);
     free(processed_image);
     delete [] program.instructions;
@@ -666,7 +686,7 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
 
     // Note: MAX_VLIW_WIDTH set to 4 in pe.cu
     size_t min_vliw_width = 1;
-    size_t max_vliw_width = 4;
+    size_t max_vliw_width = 1;
     // Note: Need to change this if we need to add more tests
     size_t NUM_TESTS = 5;
     size_t num_total_tests = NUM_TESTS * (max_vliw_width - min_vliw_width + 1);
@@ -688,7 +708,7 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
             useGPU
         );
 
-        
+        /*
         testProgram(
             ("programs/" + vliw_width_str + "_vliw_slot/thinning_one_bit.vis").c_str(),
             vliwWidth,
@@ -716,6 +736,7 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
             (vliwWidth - min_vliw_width) * NUM_TESTS + 2,
             useGPU
         );
+        */
 
         /*
         testProgram(
@@ -729,6 +750,7 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
         );
         */
 
+        /*
         testProgram(
             ("programs/" + vliw_width_str + "_vliw_slot/prewitt_edge_detection_six_bits.vis").c_str(),
             vliwWidth,
@@ -756,6 +778,7 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
             (vliwWidth - min_vliw_width) * NUM_TESTS + 4,
             useGPU
         );
+        */
     }
 
     free(image);
@@ -783,11 +806,11 @@ int main() {
     std::cout << "Average per-frame frame rate (GPU): " << 1000.0f / gpu_tests_result.second << " fps" << std::endl;
 
     // TODO Assuming no cache effects
-    std::pair<double, double> cpu_tests_result = testAllPrograms(imageFilename, dimension, false);
+    // std::pair<double, double> cpu_tests_result = testAllPrograms(imageFilename, dimension, false);
     // std::cout << "Average processing time (CPU): " << cpu_tests_result.first << " ms" << std::endl;
     // std::cout << "Average frame rate (CPU): " << 1000.0f / cpu_tests_result.first << " fps" << std::endl;
-    std::cout << "Average per-frame processing time (CPU): " << cpu_tests_result.second << " ms" << std::endl;
-    std::cout << "Average per-frame frame rate (CPU): " << 1000.0f / cpu_tests_result.second << " fps" << std::endl;
+    // std::cout << "Average per-frame processing time (CPU): " << cpu_tests_result.second << " ms" << std::endl;
+    // std::cout << "Average per-frame frame rate (CPU): " << 1000.0f / cpu_tests_result.second << " fps" << std::endl;
 
     return EXIT_SUCCESS;
 }

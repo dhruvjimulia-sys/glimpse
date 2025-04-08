@@ -1,0 +1,33 @@
+Number of CUDA-capable devices: 1
+
+Device 0: NVIDIA TITAN Xp
+  Compute capability: 6.1
+  Total global memory: 12182 MB
+  Shared memory per block: 48 KB
+  Registers per block: 65536
+  Warp size: 32
+  Total constant memory: 64 KB
+  Multiprocessors: 30
+  CUDA Cores/MP: 64 (Architecture-dependent)
+  Total CUDA Cores: 1920
+  Warp size: 32
+  Max threads per block: 1024
+  Max thread dimensions: [1024, 1024, 64]
+  Max grid size: [2147483647, 65535, 65535]
+  Memory clock rate: 5705 MHz
+  Memory bus width: 384 bits
+  Peak memory bandwidth: 547.68 GB/s
+programs/1_vliw_slot/edge_detection_one_bit.vis test passed with frame rate 4392.13 fps
+Target scaling factor: 1, Source scaling factor: 1.22222
+Target scaling factor: 1, Source scaling factor: 1.22222
+Target scaling factor: 1, Source scaling factor: 1.22222
+Compute Area: 1.22439e+06 um^2 // fine
+Memory Area: 2.84963e+06 um^2 // fine
+Compute Dynamic Power: 5.80671e-09 W // fine
+Memory Dynamic Power: 1.36687 W // fine
+Compute Subthreshold Leakage: 27.2878 W // high?
+Memory Subthreshold Leakage: 0.0207832 W // fine
+Compute Gate Leakage: 28.8159 W // high?
+Memory Gate Leakage: 0.0100302 W // fine
+Average per-frame processing time (GPU): 0.045536 ms
+Average per-frame frame rate (GPU): 21960.6 fps

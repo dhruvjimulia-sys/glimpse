@@ -8,7 +8,10 @@
 #include "isa.h"
 #include "utils/program_utils.h"
 
+#define MILLI_ORDER_OF_MAGNITUDE 1e3
 #define NANO_ORDER_OF_MAGNITUDE 1e9
+#define MILLI_TO_MICRO_ORDER_OF_MAGNITUDE 1e3
+#define MICRO_TO_NANO_ORDER_OF_MAGNITUDE 1e3
 
 // From latest SRVC paper
 // ASSUME neighbour-to-neighbour communication bottleneck + more assumptions
@@ -16,7 +19,7 @@
 // ASSUME no ADC and photodetector area and power
 #define CLOCK_FREQUENCY 2e8  // 200 MHz
 // ASSUME neighbour-to-neighbour communication
-#define TARGET_TECHNOLOGY 65  // 65nm
+#define TARGET_TECHNOLOGY 90  // 65nm // Must be <= 90nm due to CACTI
 #define SUPPLY_VOLTAGE 1.0    // 1V
 #define TEMPERATURE \
     300  // in K // must be a multiple of 10 // and must be between 300 and 400
@@ -45,6 +48,10 @@ enum ram_cell_tech_type_num {
 
 #define TECH_TYPE itrs_hp
 
+double scaleAreaBasedOnTechnology(double area, size_t old_tech,
+    size_t new_tech);
+double scalePowerBasedOnTechnology(double power, size_t old_tech,
+     size_t new_tech);
 TechnologyParameter getTechnologyParams(int technology);
 double pmos_to_nmos_sz_ratio(TechnologyParameter g_tp);
 double getLogicScalingFactor(size_t source_technology, size_t target_technology);
@@ -54,16 +61,17 @@ double cmos_Isub_leakage(double nWidth, double pWidth,
 CACTIResult getCACTIResult(std::string filename, size_t vliwWidth);
 
 // Compute area and power functions
+// in um^2
 double getComputeArea(size_t vliwWidth) {
     double oneComputeUnitArea = scaleAreaBasedOnTechnology(
         AREA_OF_FULL_ADDER_130_NM * 4 + AREA_OF_MULTIPLEXER_130_NM,
         SOURCE_DATA_TECHNOLOGY, TARGET_TECHNOLOGY);  // in um^2
     double computeArea =
-        oneComputeUnitArea * vliwWidth *
-        getLogicScalingFactor(SOURCE_DATA_TECHNOLOGY, TARGET_TECHNOLOGY);
+        oneComputeUnitArea * vliwWidth;
     return computeArea;  // in um^2
 }
 
+// in W
 double getComputeSubthresholdLeakage(size_t vliwWidth) {
     TechnologyParameter g_tp = getTechnologyParams(TARGET_TECHNOLOGY);
     // area must be in um^2
@@ -75,6 +83,7 @@ double getComputeSubthresholdLeakage(size_t vliwWidth) {
            SUPPLY_VOLTAGE / 2;  // unit W
 }
 
+// in W
 double getComputeGateLeakage(size_t vliwWidth) {
     TechnologyParameter g_tp = getTechnologyParams(TARGET_TECHNOLOGY);
     // area must be in um^2
@@ -85,50 +94,59 @@ double getComputeGateLeakage(size_t vliwWidth) {
            SUPPLY_VOLTAGE / 2;  // unit W
 }
 
+// in W
 double getComputeDynamicPower(Program program) {
     double per_access_energy =
         (1.15 / 3 / 1e9 / 4 / 1.3 / 1.3 * SUPPLY_VOLTAGE * SUPPLY_VOLTAGE *
          (TARGET_TECHNOLOGY / 90.0)) /
         64;  // This is per cycle energy(nJ)
-    // CLOCK_FREQUENCY needs to be divided in four to get effective clock frequency for ALU (in non-pipelining case)
+    // PIPELINING: CLOCK_FREQUENCY needs to be divided in four to get effective clock frequency for ALU (in non-pipelining case)
     return (numComputeAccesses(program) * per_access_energy * (CLOCK_FREQUENCY / 4)) /
            NANO_ORDER_OF_MAGNITUDE;  // in W
 }
 
+// in um^2
 double getMemoryArea(size_t vliwWidth) {
-    CACTIResult memoryResult = getCACTIResult("cacti/memory.cfg", vliwWidth);
-    CACTIResult registersResult = getCACTIResult("cacti/registers.cfg", vliwWidth);
-    return (memoryResult.height * memoryResult.width) / MEMORY_MULTIPLIER +
-           (registersResult.height * registersResult.width) / REGISTER_MULTIPLIER;
+    CACTIResult memoryResult = getCACTIResult("memory.cfg", vliwWidth);
+    CACTIResult registersResult = getCACTIResult("registers.cfg", vliwWidth);
+    // area from CACTI is in mm^2
+    return (((memoryResult.height * memoryResult.width) / MEMORY_MULTIPLIER +
+           ((registersResult.height * registersResult.width) / REGISTER_MULTIPLIER) * vliwWidth) * MILLI_TO_MICRO_ORDER_OF_MAGNITUDE) * MILLI_TO_MICRO_ORDER_OF_MAGNITUDE;
 }
 
+// in W
 double getMemorySubthresholdLeakage(size_t vliwWidth) {
-    CACTIResult memoryResult = getCACTIResult("cacti/memory.cfg", vliwWidth);
-    CACTIResult registersResult = getCACTIResult("cacti/registers.cfg", vliwWidth);
-    return memoryResult.leakage_power / MEMORY_MULTIPLIER +
-           registersResult.leakage_power / REGISTER_MULTIPLIER;
+    CACTIResult memoryResult = getCACTIResult("memory.cfg", vliwWidth);
+    CACTIResult registersResult = getCACTIResult("registers.cfg", vliwWidth);
+    // leakage_power from CACTI is in mW
+    return (memoryResult.leakage_power / MEMORY_MULTIPLIER +
+           (registersResult.leakage_power / REGISTER_MULTIPLIER) * vliwWidth) / MILLI_ORDER_OF_MAGNITUDE;
 }
 
+// in W
 double getMemoryGateLeakage(size_t vliwWidth) {
-    CACTIResult memoryResult = getCACTIResult("cacti/memory.cfg", vliwWidth);
-    CACTIResult registersResult = getCACTIResult("cacti/registers.cfg", vliwWidth);
-    return memoryResult.gate_leakage_power / MEMORY_MULTIPLIER +
-           registersResult.gate_leakage_power / REGISTER_MULTIPLIER;
+    CACTIResult memoryResult = getCACTIResult("memory.cfg", vliwWidth);
+    CACTIResult registersResult = getCACTIResult("registers.cfg", vliwWidth);
+    // gate_leakage_power from CACTI is in mW
+    return (memoryResult.gate_leakage_power / MEMORY_MULTIPLIER +
+           (registersResult.gate_leakage_power / REGISTER_MULTIPLIER) * vliwWidth) / MILLI_ORDER_OF_MAGNITUDE;
 }
 
+// in W
 double getMemoryDynamicPower(Program program) {
-    CACTIResult memoryResult = getCACTIResult("cacti/memory.cfg", program.vliwWidth);
+    CACTIResult memoryResult = getCACTIResult("memory.cfg", program.vliwWidth);
     CACTIResult registersResult =
-        getCACTIResult("cacti/registers.cfg", program.vliwWidth);
-    // Use functions from program_utils
-    return (memoryResult.dynamic_read_energy_per_access *
+        getCACTIResult("registers.cfg", program.vliwWidth);
+    // dynamic_read_energy_per_access from CACTI is in nJ
+    // PIPELINING: CLOCK_FREQUENCY needs to be divided in four to get effective clock frequency for various
+    return (((memoryResult.dynamic_read_energy_per_access *
            numMemoryReadAccesses(program) +
            memoryResult.dynamic_write_energy_per_access *
                numMemoryWriteAccesses(program)) / MEMORY_MULTIPLIER +
-           (registersResult.dynamic_read_energy_per_access *
+           ((registersResult.dynamic_read_energy_per_access *
                numRegisterReadAccesses(program) +
            registersResult.dynamic_write_energy_per_access *
-               numRegisterWriteAccesses(program)) / REGISTER_MULTIPLIER;
+               numRegisterWriteAccesses(program)) / REGISTER_MULTIPLIER) * program.vliwWidth) * (CLOCK_FREQUENCY / 4)) / NANO_ORDER_OF_MAGNITUDE;
 }
 
 // Technology scaling parameters below taken from McPAT
@@ -197,14 +215,14 @@ TechnologyParameter getTechnologyParams(int technology) {
             if (tech_lo == tech_hi) {
                 curr_alpha = 1;
             } else {
-                curr_alpha = (technology - tech_hi) / (tech_lo - tech_hi);
+                curr_alpha = (((double) technology) - tech_hi) / (((double) tech_lo) - tech_hi);
             }
         } else {
             tech = tech_hi;
             if (tech_lo == tech_hi) {
                 break;
             } else {
-                curr_alpha = (tech_lo - technology) / (tech_lo - tech_hi);
+                curr_alpha = (tech_lo - ((double) technology)) / (((double) tech_lo) - tech_hi);
             }
         }
 
@@ -923,9 +941,18 @@ TechnologyParameter getTechnologyParams(int technology) {
     return g_tp;
 }
 
+void replaceAllInstancesOf(std::string& str, const char* from, const std::string& to) {
+    size_t pos = str.find(from);
+    while (pos != std::string::npos) {
+        str.replace(pos, strlen(from), to);
+        pos = str.find(from, pos + to.length());
+    }
+}
+
 CACTIResult getCACTIResult(std::string filename, size_t vliwWidth) {
-    // Read CACTI input file "filename" 
-    std::ifstream file(filename);
+    // Read CACTI input file "filename"
+    std::string filenameWithDirectory = "cacti/" + filename;
+    std::ifstream file(filenameWithDirectory);
     std::string fileContent;
     if (file.is_open()) {
         std::stringstream buffer;
@@ -933,34 +960,36 @@ CACTIResult getCACTIResult(std::string filename, size_t vliwWidth) {
         fileContent = buffer.str();
         file.close();
     } else {
-        std::cerr << "Unable to open file: " << filename << std::endl;
+        std::cerr << "Unable to open file: " << filenameWithDirectory << std::endl;
         exit(1);
     }
 
     // Replace all instances of ${VLIW} in the file with the actual vliwWidth
-    size_t pos = fileContent.find("${VLIW}");
-    while (pos != std::string::npos) {
-        fileContent.replace(pos, strlen("${VLIW}"), std::to_string(vliwWidth));
-        pos = fileContent.find("${VLIW}", pos + std::to_string(vliwWidth).length());
-    }
+    replaceAllInstancesOf(fileContent, "${VLIW}", std::to_string(vliwWidth));
+    // Replace all instances of ${BUS_WIDTH} with vliwWidth * 5
+    replaceAllInstancesOf(fileContent, "${BUS_WIDTH}", std::to_string(vliwWidth * 5));
+    replaceAllInstancesOf(fileContent, "${TEMPERATURE}", std::to_string(TEMPERATURE));
+    replaceAllInstancesOf(fileContent, "${TECHNOLOGY}", std::to_string(((double) TARGET_TECHNOLOGY) / MICRO_TO_NANO_ORDER_OF_MAGNITUDE));
 
     // Write modified input to a temporary file
     std::string tempFilename = filename + ".tmp";
+    std::string tempFilenameWithDirectory = filenameWithDirectory + ".tmp";
     // Create the temporary file if it does not exist
-    std::ofstream ofs(tempFilename, std::ios::app);
+    std::ofstream ofs(tempFilenameWithDirectory, std::ios::app);
     ofs.close();
-    std::ofstream tempFile(tempFilename);
+    std::ofstream tempFile(tempFilenameWithDirectory);
     if (tempFile.is_open()) {
         tempFile << fileContent;
         tempFile.close();
     } else {
-        std::cerr << "Unable to open temporary file: " << tempFilename << std::endl;
+        std::cerr << "Unable to open temporary file: " << tempFilenameWithDirectory << std::endl;
         exit(1);
     }
 
     // Execute CACTI program with the input file and pipe output to output file
-    std::string outputFilename = filename + ".out";
-    std::string command = "./cacti/cacti -infile " + tempFilename + " > " + outputFilename;
+    std::string outputFilename = filename + ".output";
+    std::string outputFilenameWithDirectory = "cacti/" + outputFilename;
+    std::string command = "cd cacti; ./cacti -infile " + tempFilename + " > " + outputFilename + "; cd ..";
     int result_code = system(command.c_str());
     if (result_code != 0) {
         std::cerr << "CACTI execution failed with code: " << result_code << std::endl;
@@ -968,7 +997,7 @@ CACTIResult getCACTIResult(std::string filename, size_t vliwWidth) {
     }
 
     // Read CACTI output file "output_file" and parse the results
-    std::ifstream output_file(outputFilename);
+    std::ifstream output_file(outputFilenameWithDirectory);
     std::string line;
     CACTIResult result;
 
@@ -1002,7 +1031,7 @@ CACTIResult getCACTIResult(std::string filename, size_t vliwWidth) {
         }
         output_file.close();
     } else {
-        std::cerr << "Unable to open file: " << outputFilename << std::endl;
+        std::cerr << "Unable to open file: " << outputFilenameWithDirectory << std::endl;
         exit(1);
     }
     return result;
@@ -1014,16 +1043,21 @@ double pmos_to_nmos_sz_ratio(TechnologyParameter g_tp) {
 
 double scaleAreaBasedOnTechnology(double area, size_t old_tech,
                                   size_t new_tech) {
-    return area * getLogicScalingFactor(old_tech, new_tech);
+    double scaling_factor = getLogicScalingFactor(old_tech, new_tech);
+    return area * scaling_factor;
 }
 
 double getLogicScalingFactor(size_t source_technology,
                              size_t target_technology) {
     // scaling factors are w.r.t to 90nm technology
-    return (getTechnologyParams(target_technology)
-                .scaling_factor.logic_scaling_co_eff) /
-           (getTechnologyParams(source_technology)
-                .scaling_factor.logic_scaling_co_eff);
+    double target_scaling_factor = getTechnologyParams(target_technology)
+                .scaling_factor.logic_scaling_co_eff;
+    double source_scaling_factor = getTechnologyParams(source_technology)
+                .scaling_factor.logic_scaling_co_eff;
+    std::cout << "Target scaling factor: " << target_scaling_factor
+              << ", Source scaling factor: " << source_scaling_factor
+              << std::endl;
+    return target_scaling_factor / source_scaling_factor;
 }
 
 double simplified_nmos_leakage(double nwidth, TechnologyParameter g_tp) {

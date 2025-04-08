@@ -2,6 +2,7 @@
 #include <cctype>
 #include <cstddef>
 #include <cstdint>
+#include "isa.h"
 
 // Memory area and power functions
 // Access time (ns): 0.435422
@@ -293,14 +294,18 @@ class TechnologyParameter {
     }
 };
 
-double getArea();
+double getComputeArea(size_t vliwWidth);
 
-double scaleAreaBasedOnTechnology(double area, size_t old_tech,
-                                  size_t new_tech);
+double getComputeSubthresholdLeakage(size_t vliwWidth);
 
-double getStaticPower();
+double getComputeGateLeakage(size_t vliwWidth);
 
-double getDynamicPower();
+double getComputeDynamicPower(Program program);
 
-double scalePowerBasedOnTechnology(double power, size_t old_tech,
-                                   size_t new_tech);
+double getMemoryArea(size_t vliwWidth);
+
+double getMemorySubthresholdLeakage(size_t vliwWidth);
+
+double getMemoryGateLeakage(size_t vliwWidth);
+
+double getMemoryDynamicPower(Program program);
