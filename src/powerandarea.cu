@@ -19,7 +19,8 @@
 // ASSUME no ADC and photodetector area and power
 #define CLOCK_FREQUENCY 2e8  // 200 MHz
 // ASSUME neighbour-to-neighbour communication
-#define TARGET_TECHNOLOGY 90  // 65nm // Must be <= 90nm due to CACTI
+#define TARGET_TECHNOLOGY 65  // 65nm // Must be <= 90nm due to CACTI
+// ASSUME supply voltage of 1.0V works
 #define SUPPLY_VOLTAGE 1.0    // 1V
 #define TEMPERATURE \
     300  // in K // must be a multiple of 10 // and must be between 300 and 400
@@ -46,7 +47,7 @@ enum ram_cell_tech_type_num {
 // for lp_dram and comm_dram, n_to_p_eff_curr_drv_ratio, I_off_n, I_g_on_n not
 // defined (only I_off_n defined)
 
-#define TECH_TYPE itrs_hp
+#define TECH_TYPE itrs_lop
 
 double scaleAreaBasedOnTechnology(double area, size_t old_tech,
     size_t new_tech);
@@ -77,8 +78,8 @@ double getComputeSubthresholdLeakage(size_t vliwWidth) {
     // area must be in um^2
     return getComputeArea(vliwWidth) * g_tp.scaling_factor.core_tx_density *
            cmos_Isub_leakage(
-               20 * g_tp.min_w_nmos_,
-               20 * g_tp.min_w_nmos_ * pmos_to_nmos_sz_ratio(g_tp),
+               g_tp.min_w_nmos_,
+               g_tp.min_w_nmos_ * pmos_to_nmos_sz_ratio(g_tp),
                g_tp) *
            SUPPLY_VOLTAGE / 2;  // unit W
 }
@@ -88,8 +89,8 @@ double getComputeGateLeakage(size_t vliwWidth) {
     TechnologyParameter g_tp = getTechnologyParams(TARGET_TECHNOLOGY);
     // area must be in um^2
     return getComputeArea(vliwWidth) * g_tp.scaling_factor.core_tx_density *
-           cmos_Ig_leakage(20 * g_tp.min_w_nmos_,
-                           20 * g_tp.min_w_nmos_ * pmos_to_nmos_sz_ratio(g_tp),
+           cmos_Ig_leakage(g_tp.min_w_nmos_,
+                           g_tp.min_w_nmos_ * pmos_to_nmos_sz_ratio(g_tp),
                            g_tp) *
            SUPPLY_VOLTAGE / 2;  // unit W
 }
@@ -1054,9 +1055,6 @@ double getLogicScalingFactor(size_t source_technology,
                 .scaling_factor.logic_scaling_co_eff;
     double source_scaling_factor = getTechnologyParams(source_technology)
                 .scaling_factor.logic_scaling_co_eff;
-    std::cout << "Target scaling factor: " << target_scaling_factor
-              << ", Source scaling factor: " << source_scaling_factor
-              << std::endl;
     return target_scaling_factor / source_scaling_factor;
 }
 
