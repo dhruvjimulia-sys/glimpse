@@ -32,12 +32,30 @@ size_t numComputeAccesses(Program program) {
 }
 
 size_t numMemoryReadAccesses(Program program) {
-    // ASSUME: reading from photodetector/0/neighbours counts as an access
-    return numComputeAccesses(program) * 2;
+    size_t num_memory_read_accesses = 0;
+    for (int i = 0; i < program.instructionCount * program.vliwWidth; i++) {
+        if (!program.instructions[i].isNop) {
+            if (program.instructions[i].input1.input.inputKind == InputKind::Address) {
+                num_memory_read_accesses++;
+            }
+            if (program.instructions[i].input2.input.inputKind == InputKind::Address) {
+                num_memory_read_accesses++;
+            }
+        }
+    }
+    return num_memory_read_accesses;
 }
 
 size_t numMemoryWriteAccesses(Program program) {
-    return numComputeAccesses(program);
+    size_t num_memory_write_accesses = 0;
+    for (int i = 0; i < program.instructionCount * program.vliwWidth; i++) {
+        if (!program.instructions[i].isNop) {
+            if (program.instructions[i].result.resultKind == ResultKind::Address) {
+                num_memory_write_accesses++;
+            }
+        }
+    }
+    return num_memory_write_accesses;
 }
 
 size_t numRegisterReadAccesses(Program program) {

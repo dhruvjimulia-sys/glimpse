@@ -34,7 +34,7 @@
 
 #define NUMBER_TECH_FLAVORS 4
 
-#define MEMORY_MULTIPLIER 16
+#define MEMORY_MULTIPLIER 88
 #define REGISTER_MULTIPLIER 128
 
 enum ram_cell_tech_type_num {
@@ -81,7 +81,7 @@ double getComputeSubthresholdLeakage(size_t vliwWidth) {
                g_tp.min_w_nmos_,
                g_tp.min_w_nmos_ * pmos_to_nmos_sz_ratio(g_tp),
                g_tp) *
-           SUPPLY_VOLTAGE / 2;  // unit W
+           SUPPLY_VOLTAGE / (2 * 1e7);  // unit W
 }
 
 // in W
@@ -92,7 +92,7 @@ double getComputeGateLeakage(size_t vliwWidth) {
            cmos_Ig_leakage(g_tp.min_w_nmos_,
                            g_tp.min_w_nmos_ * pmos_to_nmos_sz_ratio(g_tp),
                            g_tp) *
-           SUPPLY_VOLTAGE / 2;  // unit W
+           SUPPLY_VOLTAGE / (2 * 1e7);  // unit W
 }
 
 // in W
@@ -139,15 +139,16 @@ double getMemoryDynamicPower(Program program) {
     CACTIResult registersResult =
         getCACTIResult("registers.cfg", program.vliwWidth);
     // dynamic_read_energy_per_access from CACTI is in nJ
-    // PIPELINING: CLOCK_FREQUENCY needs to be divided in four to get effective clock frequency for various
-    return (((memoryResult.dynamic_read_energy_per_access *
+    // PIPELINING: CLOCK_FREQUENCY needs to be divided in four to get effective clock frequency for various components
+    // This is equivalent to instruction cycle clock frequency
+    return ((((memoryResult.dynamic_read_energy_per_access *
            numMemoryReadAccesses(program) +
            memoryResult.dynamic_write_energy_per_access *
                numMemoryWriteAccesses(program)) / MEMORY_MULTIPLIER +
            ((registersResult.dynamic_read_energy_per_access *
                numRegisterReadAccesses(program) +
            registersResult.dynamic_write_energy_per_access *
-               numRegisterWriteAccesses(program)) / REGISTER_MULTIPLIER) * program.vliwWidth) * (CLOCK_FREQUENCY / 4)) / NANO_ORDER_OF_MAGNITUDE;
+               numRegisterWriteAccesses(program)) / REGISTER_MULTIPLIER)) / program.instructionCount) * (CLOCK_FREQUENCY / 4)) / NANO_ORDER_OF_MAGNITUDE;
 }
 
 // Technology scaling parameters below taken from McPAT
