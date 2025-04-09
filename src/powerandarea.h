@@ -294,7 +294,7 @@ class TechnologyParameter {
     }
 };
 
-double getComputeArea(size_t vliwWidth);
+double getComputeArea(size_t vliwWidth, bool overhead = true);
 
 double getComputeSubthresholdLeakage(size_t vliwWidth);
 

@@ -44,6 +44,24 @@ enum ram_cell_tech_type_num {
     lp_dram = 3,
     comm_dram = 4
 };
+
+std::string getTechnologyName(enum ram_cell_tech_type_num ram_cell_num) {
+    switch (ram_cell_num) {
+        case itrs_hp:
+            return "itrs-hp";
+        case itrs_lstp:
+            return "itrs-lstp";
+        case itrs_lop:
+            return "itrs-lop";
+        case lp_dram:
+            return "lp-dram";
+        case comm_dram:
+            return "comm-dram";
+        default:
+            return "Unknown Technology";
+    }
+}
+
 // for lp_dram and comm_dram, n_to_p_eff_curr_drv_ratio, I_off_n, I_g_on_n not
 // defined (only I_off_n defined)
 
@@ -63,20 +81,21 @@ CACTIResult getCACTIResult(std::string filename, size_t vliwWidth);
 
 // Compute area and power functions
 // in um^2
-double getComputeArea(size_t vliwWidth) {
+double getComputeArea(size_t vliwWidth, bool overhead) {
     double oneComputeUnitArea = scaleAreaBasedOnTechnology(
         AREA_OF_FULL_ADDER_130_NM * 4 + AREA_OF_MULTIPLEXER_130_NM,
         SOURCE_DATA_TECHNOLOGY, TARGET_TECHNOLOGY);  // in um^2
     double computeArea =
         oneComputeUnitArea * vliwWidth;
-    return computeArea;  // in um^2
+    double overhead_value = getTechnologyParams(TARGET_TECHNOLOGY).macro_layout_overhead;
+    return overhead ? (computeArea * overhead_value) : computeArea;  // in um^2
 }
 
 // in W
 double getComputeSubthresholdLeakage(size_t vliwWidth) {
     TechnologyParameter g_tp = getTechnologyParams(TARGET_TECHNOLOGY);
     // area must be in um^2
-    return getComputeArea(vliwWidth) * g_tp.scaling_factor.core_tx_density *
+    return getComputeArea(vliwWidth, false) * g_tp.scaling_factor.core_tx_density *
            cmos_Isub_leakage(
                g_tp.min_w_nmos_,
                g_tp.min_w_nmos_ * pmos_to_nmos_sz_ratio(g_tp),
@@ -88,7 +107,7 @@ double getComputeSubthresholdLeakage(size_t vliwWidth) {
 double getComputeGateLeakage(size_t vliwWidth) {
     TechnologyParameter g_tp = getTechnologyParams(TARGET_TECHNOLOGY);
     // area must be in um^2
-    return getComputeArea(vliwWidth) * g_tp.scaling_factor.core_tx_density *
+    return getComputeArea(vliwWidth, false) * g_tp.scaling_factor.core_tx_density *
            cmos_Ig_leakage(g_tp.min_w_nmos_,
                            g_tp.min_w_nmos_ * pmos_to_nmos_sz_ratio(g_tp),
                            g_tp) *
@@ -162,15 +181,17 @@ double getMemoryDynamicPower(Program program) {
 // peri_global.I_g_on_p
 TechnologyParameter getTechnologyParams(int technology) {
     double curr_logic_scaling_co_eff;
-    size_t iter, tech, tech_lo, tech_hi;
+    int iter, tech, tech_lo, tech_hi;
     double curr_core_tx_density =
         0;  // this is density per um^2; 90, ...22nm based on Intel Penryn
+    double curr_macro_layout_overhead = 0;
     double curr_alpha;
     double vdd[NUMBER_TECH_FLAVORS];  // default vdd from itrs
     double n_to_p_eff_curr_drv_ratio[NUMBER_TECH_FLAVORS];
     double I_off_n[NUMBER_TECH_FLAVORS][101];
     double I_g_on_n[NUMBER_TECH_FLAVORS][101];
     TechnologyParameter g_tp;
+    g_tp.reset();
 
     if (technology < 181 && technology > 179) {
         tech_lo = 180;
@@ -238,6 +259,7 @@ TechnologyParameter getTechnologyParams(int technology) {
             // coefficient
             curr_logic_scaling_co_eff = 1.5;  // linear scaling from 90nm
             curr_core_tx_density = 1.25 * 0.7 * 0.7 * 0.4;
+            curr_macro_layout_overhead = 1.0;//EDA placement and routing tool rule of thumb
             n_to_p_eff_curr_drv_ratio[0] = 2.45;
 
             I_off_n[0][0] = 7e-10;  // A/micron
@@ -269,6 +291,7 @@ TechnologyParameter getTechnologyParams(int technology) {
             // Empirical undifferetiated core/FU coefficient
             curr_logic_scaling_co_eff = 1;
             curr_core_tx_density = 1.25 * 0.7 * 0.7;
+            curr_macro_layout_overhead = 1.1;//EDA placement and routing tool rule of thumb
 
             n_to_p_eff_curr_drv_ratio[0] = 2.45;
 
@@ -387,6 +410,7 @@ TechnologyParameter getTechnologyParams(int technology) {
                       // size, only scale linearly according to IBM cell
                       // processor
             curr_core_tx_density = 1.25 * 0.7;
+            curr_macro_layout_overhead = 1.1;//EDA placement and routing tool rule of thumb
 
             vdd[0] = 1.1;
             n_to_p_eff_curr_drv_ratio[0] = 2.41;
@@ -497,6 +521,7 @@ TechnologyParameter getTechnologyParams(int technology) {
             // Empirical undifferetiated core/FU coefficient
             curr_logic_scaling_co_eff = 0.7 * 0.7;
             curr_core_tx_density = 1.25;
+            curr_macro_layout_overhead = 1.1;//EDA placement and routing tool rule of thumb
 
             vdd[0] = 1.0;
             n_to_p_eff_curr_drv_ratio[0] = 2.41;
@@ -607,6 +632,7 @@ TechnologyParameter getTechnologyParams(int technology) {
             // Empirical undifferetiated core/FU coefficient
             curr_logic_scaling_co_eff = 0.7 * 0.7 * 0.7;
             curr_core_tx_density = 1.25 / 0.7;
+            curr_macro_layout_overhead = 1.1;//EDA placement and routing tool rule of thumb
 
             vdd[0] = 0.9;
             n_to_p_eff_curr_drv_ratio[0] = 2.41;
@@ -716,6 +742,7 @@ TechnologyParameter getTechnologyParams(int technology) {
         if (tech == 22) {
             curr_logic_scaling_co_eff = 0.7 * 0.7 * 0.7 * 0.7;
             curr_core_tx_density = 1.25 / 0.7 / 0.7;
+            curr_macro_layout_overhead = 1.1;//EDA placement and routing tool rule of thumb
 
             vdd[0] = 0.8;
             n_to_p_eff_curr_drv_ratio[0] =
@@ -832,6 +859,7 @@ TechnologyParameter getTechnologyParams(int technology) {
             // Empirical undifferetiated core/FU coefficient
             curr_logic_scaling_co_eff = 0.7 * 0.7 * 0.7 * 0.7 * 0.7;
             curr_core_tx_density = 1.25 / 0.7 / 0.7 / 0.7;
+            curr_macro_layout_overhead = 1.1;//EDA placement and routing tool rule of thumb
 
             vdd[0] = 0.7;
             n_to_p_eff_curr_drv_ratio[0] =
@@ -913,6 +941,7 @@ TechnologyParameter getTechnologyParams(int technology) {
             curr_alpha * curr_logic_scaling_co_eff;
         g_tp.scaling_factor.core_tx_density +=
             curr_alpha * curr_core_tx_density;
+        g_tp.macro_layout_overhead += curr_alpha * curr_macro_layout_overhead;
         g_tp.min_w_nmos_ = (3 * technology) / 2;
         g_tp.peri_global.n_to_p_eff_curr_drv_ratio +=
             curr_alpha * n_to_p_eff_curr_drv_ratio[TECH_TYPE];
@@ -972,6 +1001,7 @@ CACTIResult getCACTIResult(std::string filename, size_t vliwWidth) {
     replaceAllInstancesOf(fileContent, "${BUS_WIDTH}", std::to_string(vliwWidth * 5));
     replaceAllInstancesOf(fileContent, "${TEMPERATURE}", std::to_string(TEMPERATURE));
     replaceAllInstancesOf(fileContent, "${TECHNOLOGY}", std::to_string(((double) TARGET_TECHNOLOGY) / MICRO_TO_NANO_ORDER_OF_MAGNITUDE));
+    replaceAllInstancesOf(fileContent, "${TECHTYPE}", getTechnologyName(TECH_TYPE));
 
     // Write modified input to a temporary file
     std::string tempFilename = filename + ".tmp";
