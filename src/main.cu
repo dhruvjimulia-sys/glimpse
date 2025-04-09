@@ -686,7 +686,7 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
 
     // Note: MAX_VLIW_WIDTH set to 4 in pe.cu
     size_t min_vliw_width = 1;
-    size_t max_vliw_width = 1;
+    size_t max_vliw_width = 4;
     // Note: Need to change this if we need to add more tests
     size_t NUM_TESTS = 5;
     size_t num_total_tests = NUM_TESTS * (max_vliw_width - min_vliw_width + 1);
@@ -708,7 +708,6 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
             useGPU
         );
 
-        /*
         testProgram(
             ("programs/" + vliw_width_str + "_vliw_slot/thinning_one_bit.vis").c_str(),
             vliwWidth,
@@ -736,7 +735,6 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
             (vliwWidth - min_vliw_width) * NUM_TESTS + 2,
             useGPU
         );
-        */
 
         /*
         testProgram(
@@ -750,7 +748,6 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
         );
         */
 
-        /*
         testProgram(
             ("programs/" + vliw_width_str + "_vliw_slot/prewitt_edge_detection_six_bits.vis").c_str(),
             vliwWidth,
@@ -778,7 +775,6 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
             (vliwWidth - min_vliw_width) * NUM_TESTS + 4,
             useGPU
         );
-        */
     }
 
     free(image);
