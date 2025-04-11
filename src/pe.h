@@ -29,5 +29,6 @@ __global__ void processingElemKernel(
     size_t* debug_output,
     size_t num_debug_outputs,
     size_t vliw_width,
-    bool use_shared_memory
+    bool use_shared_memory,
+    bool is_pipelining
 );

@@ -152,7 +152,8 @@ std::pair<bool *, float> process_image_gpu(Program program, uint8_t* pixels, siz
         dev_debug_output,
         num_debug_outputs,
         program.vliwWidth,
-        use_shared_memory
+        use_shared_memory,
+        program.isPipelining
     );
 
     HANDLE_ERROR(cudaPeekAtLastError());
@@ -806,11 +807,11 @@ int main() {
     const char *imageFilename = "images/windmill_128.jpg";
     size_t dimension = 128;
 
-    // std::pair<double, double> gpu_tests_result = testAllPrograms(imageFilename, dimension, true);
+    std::pair<double, double> gpu_tests_result = testAllPrograms(imageFilename, dimension, true);
     // std::cout << "Average real-time processing time (GPU): " << gpu_tests_result.first << " ms" << std::endl;
     // std::cout << "Average real-time frame rate (GPU): " << 1000.0f / gpu_tests_result.first << " fps" << std::endl;
-    // std::cout << "Average per-frame processing time (GPU): " << gpu_tests_result.second << " ms" << std::endl;
-    // std::cout << "Average per-frame frame rate (GPU): " << 1000.0f / gpu_tests_result.second << " fps" << std::endl;
+    std::cout << "Average per-frame processing time (GPU): " << gpu_tests_result.second << " ms" << std::endl;
+    std::cout << "Average per-frame frame rate (GPU): " << 1000.0f / gpu_tests_result.second << " fps" << std::endl;
 
     // TODO Assuming no cache effects
     std::pair<double, double> cpu_tests_result = testAllPrograms(imageFilename, dimension, false);
