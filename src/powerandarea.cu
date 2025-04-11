@@ -18,7 +18,8 @@
 // ASSUME no interconnect area and power
 // ASSUME no ADC and photodetector area and power
 #define CLOCK_FREQUENCY 2e8  // 200 MHz
-// ASSUME neighbour-to-neighbour communication
+// ASSUME assume since neighbour-to-neighbour communication affects clock rate
+// ASSUME assume since external circuit affects clock rate
 #define TARGET_TECHNOLOGY 65  // 65nm // Must be <= 90nm due to CACTI
 // ASSUME supply voltage of 1.0V works
 #define SUPPLY_VOLTAGE 1.0    // 1V

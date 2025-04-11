@@ -58,8 +58,8 @@ void Instruction::print() const {
     printf("(%c)", resultType.value);
 };
 
-Program::Program(size_t vliwWidth, size_t count, Instruction* instr) 
-    : vliwWidth(vliwWidth), instructionCount(count), instructions(instr) {}
+Program::Program(size_t vliwWidth, size_t count, Instruction* instr, bool isPipelining) 
+    : vliwWidth(vliwWidth), instructionCount(count), instructions(instr), isPipelining(isPipelining) {}
 
 void Program::print() const {
     for (size_t i = 0; i < instructionCount; ++i) {
@@ -75,7 +75,7 @@ void Program::print() const {
 
 Parser::Parser(const std::string &input): input(input), pos(0) {};
 
-Program Parser::parse(size_t vliw) {
+Program Parser::parse(size_t vliw, bool isPipelining) {
     std::vector<std::vector<Instruction>> instructionList;
     
     while (true) {
@@ -93,7 +93,7 @@ Program Parser::parse(size_t vliw) {
         std::copy(instructionList[i].begin(), instructionList[i].end(), instructions + i * vliw);
     }
     
-    return Program(vliw, instructionList.size(), instructions);
+    return Program(vliw, instructionList.size(), instructions, isPipelining);
 }
 
 std::vector<Instruction> Parser::parseVliwInstruction(size_t vliw) {

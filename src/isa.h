@@ -51,15 +51,16 @@ struct Program {
     Instruction* instructions;
     size_t instructionCount;
     size_t vliwWidth;
+    bool isPipelining;
 
-    Program(size_t vliwWidth, size_t count, Instruction* instr);
+    Program(size_t vliwWidth, size_t count, Instruction* instr, bool isPipelining);
     __device__ __host__ void print() const;
 };
 
 class Parser {
 public:
     explicit Parser(const std::string &input);
-    Program parse(size_t vliw);
+    Program parse(size_t vliw, bool isPipelining);
 
 private:
     std::string input;

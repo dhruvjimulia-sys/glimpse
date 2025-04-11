@@ -269,8 +269,6 @@ std::pair<bool *, float> process_image_cpu(Program program, uint8_t* pixels, siz
     for (size_t i = 0; i < image_size * MEMORY_SIZE_IN_BITS; i++) {
         local_memory_values[i] = false;
     }
-    // Note: MAX_VLIW_WIDTH
-    const size_t MAX_VLIW_WIDTH = 4;
     bool* carry_register = (bool *) malloc(image_size * program.vliwWidth);
     for (size_t i = 0; i < image_size * program.vliwWidth; i++) {
         carry_register[i] = false;
@@ -284,91 +282,106 @@ std::pair<bool *, float> process_image_cpu(Program program, uint8_t* pixels, siz
     size_t shared_neighbour_value = 0;
     bool shared_neighbour_increment = false;
 
+    // Note: PIPELINE_WIDTH
+    // TODO is PIPELINE_WIDTH = 1 equivalent to no pipelining?
+    size_t PIPELINE_WIDTH = 3;
+    bool* result_values = (bool *) malloc(image_size * PIPELINE_WIDTH * program.vliwWidth);
+    // TODO initializing result_values unnecessary?
+    for (size_t i = 0; i < image_size * PIPELINE_WIDTH * program.vliwWidth; i++) {
+        result_values[i] = false;
+    }
+
     auto start_time = std::chrono::high_resolution_clock::now();
     size_t pd_bit = 0;
     bool pd_increment = false;
 
-    for (size_t i = 0; i < program.instructionCount; i++) {
+    for (size_t i = 0; (i < program.instructionCount && !program.isPipelining) || (i < program.instructionCount + PIPELINE_WIDTH - 1 && program.isPipelining); i++) {
         for (size_t x = 0; x < image_x_dim; x++) {
             for (size_t y = 0; y < image_y_dim; y++) {
                 size_t offset = x + y * image_x_dim;
-                bool result_values[MAX_VLIW_WIDTH];
-                for (size_t j = 0; j < MAX_VLIW_WIDTH; j++) {
-                    result_values[j] = false;
-                }
-                for (size_t j = 0; j < program.vliwWidth; j++) {
-                    const Instruction instruction = program.instructions[i * program.vliwWidth + j];
-                    if (instruction.isNop) {
-                        continue;
-                    }
-                    bool carryval = false;
-                    switch (instruction.carry) {
-                        case Carry::CR: carryval = carry_register[offset * program.vliwWidth + j]; break;
-                        case Carry::One: carryval = true; break;
-                        case Carry::Zero: carryval = false; break;
-                    }
-                    bool input_one = get_instruction_input_value_cpu(
-                        instruction.input1,
-                        local_memory_values + offset * MEMORY_SIZE_IN_BITS,
-                        pixels,
-                        pd_bit,
-                        &pd_increment,
-                        x,
-                        y,
-                        image_x_dim,
-                        image_y_dim,
-                        image_size,
-                        offset,
-                        neighbour_shared_values,
-                        program_num_shared_neighbours,
-                        shared_neighbour_value
-                    );
-                    bool input_two = get_instruction_input_value_cpu(
-                        instruction.input2,
-                        local_memory_values + offset * MEMORY_SIZE_IN_BITS,
-                        pixels,
-                        pd_bit,
-                        &pd_increment,
-                        x,
-                        y,
-                        image_x_dim,
-                        image_y_dim,
-                        image_size,
-                        offset,
-                        neighbour_shared_values,
-                        program_num_shared_neighbours,
-                        shared_neighbour_value
-                    );
+                if (i < program.instructionCount) {
+                    for (size_t j = 0; j < program.vliwWidth; j++) {
+                        const Instruction instruction = program.instructions[i * program.vliwWidth + j];
+                        if (instruction.isNop) {
+                            continue;
+                        }
+                        bool carryval = false;
+                        switch (instruction.carry) {
+                            case Carry::CR: carryval = carry_register[offset * program.vliwWidth + j]; break;
+                            case Carry::One: carryval = true; break;
+                            case Carry::Zero: carryval = false; break;
+                        }
+                        bool input_one = get_instruction_input_value_cpu(
+                            instruction.input1,
+                            local_memory_values + offset * MEMORY_SIZE_IN_BITS,
+                            pixels,
+                            pd_bit,
+                            &pd_increment,
+                            x,
+                            y,
+                            image_x_dim,
+                            image_y_dim,
+                            image_size,
+                            offset,
+                            neighbour_shared_values,
+                            program_num_shared_neighbours,
+                            shared_neighbour_value
+                        );
+                        bool input_two = get_instruction_input_value_cpu(
+                            instruction.input2,
+                            local_memory_values + offset * MEMORY_SIZE_IN_BITS,
+                            pixels,
+                            pd_bit,
+                            &pd_increment,
+                            x,
+                            y,
+                            image_x_dim,
+                            image_y_dim,
+                            image_size,
+                            offset,
+                            neighbour_shared_values,
+                            program_num_shared_neighbours,
+                            shared_neighbour_value
+                        );
 
-                    const bool sum = (input_one != input_two) != carryval;
-                    const bool carry = (carryval && (input_one != input_two)) || (input_one && input_two);
-                    
-                    result_values[j] = (instruction.resultType.value == 's') ? sum : carry;
+                        const bool sum = (input_one != input_two) != carryval;
+                        const bool carry = (carryval && (input_one != input_two)) || (input_one && input_two);
+                        
+                        result_values[(offset * PIPELINE_WIDTH + (i % PIPELINE_WIDTH)) * program.vliwWidth + j] = (instruction.resultType.value == 's') ? sum : carry;
 
-                    // Interesting choice...
-                    if (instruction.carry == Carry::CR) {
-                        carry_register[offset * program.vliwWidth + j] = carry;
+                        // Interesting choice...
+                        if (instruction.carry == Carry::CR) {
+                            carry_register[offset * program.vliwWidth + j] = carry;
+                        }
                     }
                 }
 
-                for (size_t j = 0; j < program.vliwWidth; j++) {
-                    const Instruction instruction = program.instructions[i * program.vliwWidth + j];
-                    if (instruction.isNop) {
-                        continue;
-                    }
-                    size_t resultvalue = result_values[j];
-                    switch (instruction.result.resultKind) {
-                        case ResultKind::Address:
-                            local_memory_values[offset * MEMORY_SIZE_IN_BITS + instruction.result.address] = resultvalue;
-                            break;
-                        case ResultKind::Neighbour:
-                            neighbour_shared_values[offset * program_num_shared_neighbours + shared_neighbour_value] = resultvalue;
-                            shared_neighbour_increment = true;
-                            break;
-                        case ResultKind::External:
-                            external_values[program_num_outputs * offset + output_number] = resultvalue;
-                            output_number_increment = true;
-                            break;
+                if (!program.isPipelining || (program.isPipelining && i >= PIPELINE_WIDTH - 1)) {
+                    for (size_t j = 0; j < program.vliwWidth; j++) {
+                        const Instruction instruction = 
+                        program.isPipelining ?
+                        program.instructions[(i - PIPELINE_WIDTH + 1) * program.vliwWidth + j] :
+                        program.instructions[i * program.vliwWidth + j];
+                        if (instruction.isNop) {
+                            continue;
+                        }
+                        bool resultvalue = !program.isPipelining ?
+                        result_values[(offset * PIPELINE_WIDTH + (i % PIPELINE_WIDTH)) * program.vliwWidth + j] :
+                        result_values[(offset * PIPELINE_WIDTH + ((i - PIPELINE_WIDTH + 1) % PIPELINE_WIDTH)) * program.vliwWidth + j];
+                        // result_values[offset * program.vliwWidth + j];
+                        switch (instruction.result.resultKind) {
+                            case ResultKind::Address:
+                                local_memory_values[offset * MEMORY_SIZE_IN_BITS + instruction.result.address] = resultvalue;
+                                break;
+                            case ResultKind::Neighbour:
+                                neighbour_shared_values[offset * program_num_shared_neighbours + shared_neighbour_value] = resultvalue;
+                                shared_neighbour_increment = true;
+                                break;
+                            case ResultKind::External:
+                                external_values[program_num_outputs * offset + output_number] = resultvalue;
+                                output_number_increment = true;
+                                break;
+                        }
                     }
                 }
             }
@@ -408,6 +421,7 @@ std::pair<bool *, float> process_image_cpu(Program program, uint8_t* pixels, siz
 
 void testProgram(std::string programFilename,
     size_t vliwWidth,
+    bool isPipelining,
     const char *imageFilename,
     size_t dimension,
     size_t num_bits,
@@ -451,7 +465,7 @@ void testProgram(std::string programFilename,
     readFile(programFilename, programText);
 
     Parser parser(programText);
-    Program program = parser.parse(vliwWidth);
+    Program program = parser.parse(vliwWidth, isPipelining);
     // program.print();
 
     size_t program_num_outputs = numOutputs(program);
@@ -693,88 +707,85 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
     std::vector<float> real_time_timings(num_total_tests);
     std::vector<float> per_frame_timings(num_total_tests);
     for (size_t vliwWidth = min_vliw_width; vliwWidth <= max_vliw_width; vliwWidth++) {
-        std::string vliw_width_str = std::to_string(vliwWidth);
-        testProgram(
-            ("programs/" + vliw_width_str + "_vliw_slot/edge_detection_one_bit.vis").c_str(),
-            vliwWidth,
-            imageFilename,
-            dimension,
-            1,
-            1,
-            getExpectedImageForOneBitEdgeDetection(imageFilename, 1, dimension, 1),
-            real_time_timings,
-            per_frame_timings,
-            (vliwWidth - min_vliw_width) * NUM_TESTS + 0,
-            useGPU
-        );
+        // Note: only make pipelining tests for vliwWidth == 1
+        for (size_t pipelining = 0; (pipelining <= 1 && vliwWidth == 1) || pipelining == 0; pipelining++) {
+            std::string directory_name = pipelining == 0 ? std::to_string(vliwWidth) + "_vliw_slot/" : "pipelining/";
+            bool is_pipelining = pipelining == 1;
+            testProgram(
+                ("programs/" + directory_name + "edge_detection_one_bit.vis").c_str(),
+                vliwWidth,
+                is_pipelining,
+                imageFilename,
+                dimension,
+                1,
+                1,
+                getExpectedImageForOneBitEdgeDetection(imageFilename, 1, dimension, 1),
+                real_time_timings,
+                per_frame_timings,
+                (vliwWidth - min_vliw_width) * NUM_TESTS + 0,
+                useGPU
+            );
 
-        testProgram(
-            ("programs/" + vliw_width_str + "_vliw_slot/thinning_one_bit.vis").c_str(),
-            vliwWidth,
-            imageFilename,
-            dimension,
-            1,
-            1,
-            getExpectedImageForOneBitThinning(imageFilename, 1, dimension, 1),
-            real_time_timings,
-            per_frame_timings,
-            (vliwWidth - min_vliw_width) * NUM_TESTS + 1,
-            useGPU
-        );
+            testProgram(
+                ("programs/" + directory_name + "thinning_one_bit.vis").c_str(),
+                vliwWidth,
+                is_pipelining,
+                imageFilename,
+                dimension,
+                1,
+                1,
+                getExpectedImageForOneBitThinning(imageFilename, 1, dimension, 1),
+                real_time_timings,
+                per_frame_timings,
+                (vliwWidth - min_vliw_width) * NUM_TESTS + 1,
+                useGPU
+            );
 
-        testProgram(
-            ("programs/" + vliw_width_str + "_vliw_slot/smoothing_one_bit.vis").c_str(),
-            vliwWidth,
-            imageFilename,
-            dimension,
-            1,
-            1,
-            getExpectedImageForOneBitSmoothing(imageFilename, 1, dimension, 1),
-            real_time_timings,
-            per_frame_timings,
-            (vliwWidth - min_vliw_width) * NUM_TESTS + 2,
-            useGPU
-        );
+            testProgram(
+                ("programs/" + directory_name + "smoothing_one_bit.vis").c_str(),
+                vliwWidth,
+                is_pipelining,
+                imageFilename,
+                dimension,
+                1,
+                1,
+                getExpectedImageForOneBitSmoothing(imageFilename, 1, dimension, 1),
+                real_time_timings,
+                per_frame_timings,
+                (vliwWidth - min_vliw_width) * NUM_TESTS + 2,
+                useGPU
+            );
 
-        /*
-        testProgram(
-            ("programs/" + vliw_width_str + "_vliw_slot/prewitt_edge_detection_one_bit.vis").c_str(),
-            vliwWidth,
-            imageFilename,
-            dimension,
-            1,
-            3,
-            getExpectedImageForPrewittEdgeDetection(imageFilename, 1, dimension, 3)
-        );
-        */
+            testProgram(
+                ("programs/" + directory_name + "prewitt_edge_detection_six_bits.vis").c_str(),
+                vliwWidth,
+                is_pipelining,
+                imageFilename,
+                dimension,
+                6,
+                9,
+                getExpectedImageForPrewittEdgeDetection(imageFilename, 6, dimension, 9),
+                real_time_timings,
+                per_frame_timings,
+                (vliwWidth - min_vliw_width) * NUM_TESTS + 3,
+                useGPU
+            );
 
-        testProgram(
-            ("programs/" + vliw_width_str + "_vliw_slot/prewitt_edge_detection_six_bits.vis").c_str(),
-            vliwWidth,
-            imageFilename,
-            dimension,
-            6,
-            9,
-            getExpectedImageForPrewittEdgeDetection(imageFilename, 6, dimension, 9),
-            real_time_timings,
-            per_frame_timings,
-            (vliwWidth - min_vliw_width) * NUM_TESTS + 3,
-            useGPU
-        );
-
-        testProgram(
-            ("programs/" + vliw_width_str + "_vliw_slot/smoothing_six_bits.vis").c_str(),
-            vliwWidth,
-            imageFilename,
-            dimension,
-            6,
-            6,
-            getExpectedImageForMultiBitSmoothing(imageFilename, 6, dimension, 6),
-            real_time_timings,
-            per_frame_timings,
-            (vliwWidth - min_vliw_width) * NUM_TESTS + 4,
-            useGPU
-        );
+            testProgram(
+                ("programs/" + directory_name + "smoothing_six_bits.vis").c_str(),
+                vliwWidth,
+                is_pipelining,
+                imageFilename,
+                dimension,
+                6,
+                6,
+                getExpectedImageForMultiBitSmoothing(imageFilename, 6, dimension, 6),
+                real_time_timings,
+                per_frame_timings,
+                (vliwWidth - min_vliw_width) * NUM_TESTS + 4,
+                useGPU
+            );
+        }
     }
 
     free(image);
@@ -795,18 +806,18 @@ int main() {
     const char *imageFilename = "images/windmill_128.jpg";
     size_t dimension = 128;
 
-    std::pair<double, double> gpu_tests_result = testAllPrograms(imageFilename, dimension, true);
+    // std::pair<double, double> gpu_tests_result = testAllPrograms(imageFilename, dimension, true);
     // std::cout << "Average real-time processing time (GPU): " << gpu_tests_result.first << " ms" << std::endl;
     // std::cout << "Average real-time frame rate (GPU): " << 1000.0f / gpu_tests_result.first << " fps" << std::endl;
-    std::cout << "Average per-frame processing time (GPU): " << gpu_tests_result.second << " ms" << std::endl;
-    std::cout << "Average per-frame frame rate (GPU): " << 1000.0f / gpu_tests_result.second << " fps" << std::endl;
+    // std::cout << "Average per-frame processing time (GPU): " << gpu_tests_result.second << " ms" << std::endl;
+    // std::cout << "Average per-frame frame rate (GPU): " << 1000.0f / gpu_tests_result.second << " fps" << std::endl;
 
     // TODO Assuming no cache effects
-    // std::pair<double, double> cpu_tests_result = testAllPrograms(imageFilename, dimension, false);
+    std::pair<double, double> cpu_tests_result = testAllPrograms(imageFilename, dimension, false);
     // std::cout << "Average processing time (CPU): " << cpu_tests_result.first << " ms" << std::endl;
     // std::cout << "Average frame rate (CPU): " << 1000.0f / cpu_tests_result.first << " fps" << std::endl;
-    // std::cout << "Average per-frame processing time (CPU): " << cpu_tests_result.second << " ms" << std::endl;
-    // std::cout << "Average per-frame frame rate (CPU): " << 1000.0f / cpu_tests_result.second << " fps" << std::endl;
+    std::cout << "Average per-frame processing time (CPU): " << cpu_tests_result.second << " ms" << std::endl;
+    std::cout << "Average per-frame frame rate (CPU): " << 1000.0f / cpu_tests_result.second << " fps" << std::endl;
 
     return EXIT_SUCCESS;
 }
