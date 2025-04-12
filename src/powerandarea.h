@@ -302,10 +302,10 @@ double getComputeGateLeakage(size_t vliwWidth);
 
 double getComputeDynamicPower(Program program);
 
-double getMemoryArea(size_t vliwWidth);
+double getMemoryArea(size_t vliwWidth, bool isPipelining);
 
-double getMemorySubthresholdLeakage(size_t vliwWidth);
+double getMemorySubthresholdLeakage(size_t vliwWidth, bool isPipelining);
 
-double getMemoryGateLeakage(size_t vliwWidth);
+double getMemoryGateLeakage(size_t vliwWidth, bool isPipelining);
 
 double getMemoryDynamicPower(Program program);

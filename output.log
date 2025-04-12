@@ -17,457 +17,457 @@ Device 0: NVIDIA TITAN Xp
   Memory clock rate: 5705 MHz
   Memory bus width: 384 bits
   Peak memory bandwidth: 547.68 GB/s
-programs/1_vliw_slot/edge_detection_one_bit.vis test passed with frame rate 16729.1 fps
+programs/1_vliw_slot/edge_detection_one_bit.vis test passed with frame rate 9303.36 fps
 Compute Area: 942779 um^2
 Memory Area: 1.15906e+06 um^2
-Compute Dynamic Power: 4.19373e-09 W
+Compute Dynamic Power: 5.24217e-10 W
 Memory Dynamic Power: 0.0263626 W
 Compute Subthreshold Leakage: 8.91984e-08 W
 Memory Subthreshold Leakage: 0.00100713 W
 Compute Gate Leakage: 5.73237e-08 W
 Memory Gate Leakage: 0.00179051 W
-programs/1_vliw_slot/thinning_one_bit.vis test passed with frame rate 4471.95 fps
+programs/1_vliw_slot/thinning_one_bit.vis test passed with frame rate 16387 fps
 Compute Area: 942779 um^2
 Memory Area: 1.15906e+06 um^2
-Compute Dynamic Power: 4.71795e-09 W
+Compute Dynamic Power: 5.24217e-10 W
 Memory Dynamic Power: 0.0292161 W
 Compute Subthreshold Leakage: 8.91984e-08 W
 Memory Subthreshold Leakage: 0.00100713 W
 Compute Gate Leakage: 5.73237e-08 W
 Memory Gate Leakage: 0.00179051 W
-programs/1_vliw_slot/smoothing_one_bit.vis test passed with frame rate 16560.7 fps
+programs/1_vliw_slot/smoothing_one_bit.vis test passed with frame rate 19020.1 fps
 Compute Area: 942779 um^2
 Memory Area: 1.15906e+06 um^2
-Compute Dynamic Power: 4.19373e-09 W
+Compute Dynamic Power: 5.24217e-10 W
 Memory Dynamic Power: 0.030176 W
 Compute Subthreshold Leakage: 8.91984e-08 W
 Memory Subthreshold Leakage: 0.00100713 W
 Compute Gate Leakage: 5.73237e-08 W
 Memory Gate Leakage: 0.00179051 W
-programs/1_vliw_slot/prewitt_edge_detection_six_bits.vis test passed with frame rate 5420.64 fps
+programs/1_vliw_slot/prewitt_edge_detection_six_bits.vis test passed with frame rate 5486.31 fps
 Compute Area: 942779 um^2
 Memory Area: 1.15906e+06 um^2
-Compute Dynamic Power: 2.35897e-08 W
+Compute Dynamic Power: 5.24217e-10 W
 Memory Dynamic Power: 0.0273214 W
 Compute Subthreshold Leakage: 8.91984e-08 W
 Memory Subthreshold Leakage: 0.00100713 W
 Compute Gate Leakage: 5.73237e-08 W
 Memory Gate Leakage: 0.00179051 W
-programs/1_vliw_slot/smoothing_six_bits.vis test passed with frame rate 6411.57 fps
+programs/1_vliw_slot/smoothing_six_bits.vis test passed with frame rate 6113.07 fps
 Compute Area: 942779 um^2
 Memory Area: 1.15906e+06 um^2
-Compute Dynamic Power: 2.09687e-08 W
+Compute Dynamic Power: 5.24217e-10 W
 Memory Dynamic Power: 0.0270988 W
 Compute Subthreshold Leakage: 8.91984e-08 W
 Memory Subthreshold Leakage: 0.00100713 W
 Compute Gate Leakage: 5.73237e-08 W
 Memory Gate Leakage: 0.00179051 W
-programs/pipelining/edge_detection_one_bit.vis test passed with frame rate 15625 fps
+programs/pipelining/edge_detection_one_bit.vis test passed with frame rate 17846.9 fps
 Compute Area: 942779 um^2
-Memory Area: 1.15906e+06 um^2
-Compute Dynamic Power: 4.19373e-09 W
-Memory Dynamic Power: 0.0162232 W
+Memory Area: 3.15672e+06 um^2
+Compute Dynamic Power: 1.29038e-09 W
+Memory Dynamic Power: 0.100637 W
 Compute Subthreshold Leakage: 8.91984e-08 W
-Memory Subthreshold Leakage: 0.00100713 W
+Memory Subthreshold Leakage: 0.00131788 W
 Compute Gate Leakage: 5.73237e-08 W
-Memory Gate Leakage: 0.00179051 W
-programs/pipelining/thinning_one_bit.vis test passed with frame rate 14959.3 fps
+Memory Gate Leakage: 0.00230807 W
+programs/pipelining/thinning_one_bit.vis test passed with frame rate 15258.8 fps
 Compute Area: 942779 um^2
-Memory Area: 1.15906e+06 um^2
-Compute Dynamic Power: 4.71795e-09 W
-Memory Dynamic Power: 0.0164341 W
+Memory Area: 3.15672e+06 um^2
+Compute Dynamic Power: 1.17949e-09 W
+Memory Dynamic Power: 0.101471 W
 Compute Subthreshold Leakage: 8.91984e-08 W
-Memory Subthreshold Leakage: 0.00100713 W
+Memory Subthreshold Leakage: 0.00131788 W
 Compute Gate Leakage: 5.73237e-08 W
-Memory Gate Leakage: 0.00179051 W
-programs/pipelining/smoothing_one_bit.vis test passed with frame rate 15838.8 fps
+Memory Gate Leakage: 0.00230807 W
+programs/pipelining/smoothing_one_bit.vis test passed with frame rate 17487.4 fps
 Compute Area: 942779 um^2
-Memory Area: 1.15906e+06 um^2
-Compute Dynamic Power: 4.19373e-09 W
-Memory Dynamic Power: 0.0219462 W
+Memory Area: 3.15672e+06 um^2
+Compute Dynamic Power: 1.52499e-09 W
+Memory Dynamic Power: 0.134152 W
 Compute Subthreshold Leakage: 8.91984e-08 W
-Memory Subthreshold Leakage: 0.00100713 W
+Memory Subthreshold Leakage: 0.00131788 W
 Compute Gate Leakage: 5.73237e-08 W
-Memory Gate Leakage: 0.00179051 W
-programs/pipelining/prewitt_edge_detection_six_bits.vis test passed with frame rate 3799.85 fps
+Memory Gate Leakage: 0.00230807 W
+programs/pipelining/prewitt_edge_detection_six_bits.vis test passed with frame rate 5280.5 fps
 Compute Area: 942779 um^2
-Memory Area: 1.15906e+06 um^2
-Compute Dynamic Power: 2.35897e-08 W
-Memory Dynamic Power: 0.0273214 W
+Memory Area: 3.15672e+06 um^2
+Compute Dynamic Power: 2.09687e-09 W
+Memory Dynamic Power: 0.165118 W
 Compute Subthreshold Leakage: 8.91984e-08 W
-Memory Subthreshold Leakage: 0.00100713 W
+Memory Subthreshold Leakage: 0.00131788 W
 Compute Gate Leakage: 5.73237e-08 W
-Memory Gate Leakage: 0.00179051 W
-programs/pipelining/smoothing_six_bits.vis test passed with frame rate 3500.22 fps
+Memory Gate Leakage: 0.00230807 W
+programs/pipelining/smoothing_six_bits.vis test passed with frame rate 6139.49 fps
 Compute Area: 942779 um^2
-Memory Area: 1.15906e+06 um^2
-Compute Dynamic Power: 2.09687e-08 W
-Memory Dynamic Power: 0.0270988 W
+Memory Area: 3.15672e+06 um^2
+Compute Dynamic Power: 2.09687e-09 W
+Memory Dynamic Power: 0.165018 W
 Compute Subthreshold Leakage: 8.91984e-08 W
-Memory Subthreshold Leakage: 0.00100713 W
+Memory Subthreshold Leakage: 0.00131788 W
 Compute Gate Leakage: 5.73237e-08 W
-Memory Gate Leakage: 0.00179051 W
-programs/2_vliw_slot/edge_detection_one_bit.vis test passed with frame rate 18859.4 fps
+Memory Gate Leakage: 0.00230807 W
+programs/2_vliw_slot/edge_detection_one_bit.vis test passed with frame rate 16640 fps
 Compute Area: 1.88556e+06 um^2
 Memory Area: 2.38501e+06 um^2
-Compute Dynamic Power: 4.19373e-09 W
+Compute Dynamic Power: 8.38746e-10 W
 Memory Dynamic Power: 0.0467226 W
 Compute Subthreshold Leakage: 1.78397e-07 W
 Memory Subthreshold Leakage: 0.00141615 W
 Compute Gate Leakage: 1.14647e-07 W
 Memory Gate Leakage: 0.00251793 W
-programs/2_vliw_slot/thinning_one_bit.vis test passed with frame rate 4513.29 fps
+programs/2_vliw_slot/thinning_one_bit.vis test passed with frame rate 21058 fps
 Compute Area: 1.88556e+06 um^2
 Memory Area: 2.38501e+06 um^2
-Compute Dynamic Power: 4.71795e-09 W
+Compute Dynamic Power: 7.86325e-10 W
 Memory Dynamic Power: 0.0474467 W
 Compute Subthreshold Leakage: 1.78397e-07 W
 Memory Subthreshold Leakage: 0.00141615 W
 Compute Gate Leakage: 1.14647e-07 W
 Memory Gate Leakage: 0.00251793 W
-programs/2_vliw_slot/smoothing_one_bit.vis test passed with frame rate 4512.64 fps
+programs/2_vliw_slot/smoothing_one_bit.vis test passed with frame rate 16956.1 fps
 Compute Area: 1.88556e+06 um^2
 Memory Area: 2.38501e+06 um^2
-Compute Dynamic Power: 4.19373e-09 W
+Compute Dynamic Power: 6.98955e-10 W
 Memory Dynamic Power: 0.0436833 W
 Compute Subthreshold Leakage: 1.78397e-07 W
 Memory Subthreshold Leakage: 0.00141615 W
 Compute Gate Leakage: 1.14647e-07 W
 Memory Gate Leakage: 0.00251793 W
-programs/2_vliw_slot/prewitt_edge_detection_six_bits.vis test passed with frame rate 4069.01 fps
+programs/2_vliw_slot/prewitt_edge_detection_six_bits.vis test passed with frame rate 6029.33 fps
 Compute Area: 1.88556e+06 um^2
 Memory Area: 2.38501e+06 um^2
-Compute Dynamic Power: 2.30655e-08 W
+Compute Dynamic Power: 1.00285e-09 W
 Memory Dynamic Power: 0.0557806 W
 Compute Subthreshold Leakage: 1.78397e-07 W
 Memory Subthreshold Leakage: 0.00141615 W
 Compute Gate Leakage: 1.14647e-07 W
 Memory Gate Leakage: 0.00251793 W
-programs/2_vliw_slot/smoothing_six_bits.vis test passed with frame rate 4882.81 fps
+programs/2_vliw_slot/smoothing_six_bits.vis test passed with frame rate 7939.53 fps
 Compute Area: 1.88556e+06 um^2
 Memory Area: 2.38501e+06 um^2
-Compute Dynamic Power: 1.46781e-08 W
+Compute Dynamic Power: 6.98955e-10 W
 Memory Dynamic Power: 0.0402729 W
 Compute Subthreshold Leakage: 1.78397e-07 W
 Memory Subthreshold Leakage: 0.00141615 W
 Compute Gate Leakage: 1.14647e-07 W
 Memory Gate Leakage: 0.00251793 W
-programs/3_vliw_slot/edge_detection_one_bit.vis test passed with frame rate 4554.73 fps
+programs/3_vliw_slot/edge_detection_one_bit.vis test passed with frame rate 15016.8 fps
 Compute Area: 2.82834e+06 um^2
 Memory Area: 3.77984e+06 um^2
-Compute Dynamic Power: 4.19373e-09 W
+Compute Dynamic Power: 8.38746e-10 W
 Memory Dynamic Power: 0.0511269 W
 Compute Subthreshold Leakage: 2.67595e-07 W
 Memory Subthreshold Leakage: 0.00175077 W
 Compute Gate Leakage: 1.71971e-07 W
 Memory Gate Leakage: 0.0030474 W
-programs/3_vliw_slot/thinning_one_bit.vis test passed with frame rate 4275.55 fps
+programs/3_vliw_slot/thinning_one_bit.vis test passed with frame rate 18232.2 fps
 Compute Area: 2.82834e+06 um^2
 Memory Area: 3.77984e+06 um^2
-Compute Dynamic Power: 5.24217e-09 W
+Compute Dynamic Power: 1.04843e-09 W
 Memory Dynamic Power: 0.0685449 W
 Compute Subthreshold Leakage: 2.67595e-07 W
 Memory Subthreshold Leakage: 0.00175077 W
 Compute Gate Leakage: 1.71971e-07 W
 Memory Gate Leakage: 0.0030474 W
-programs/3_vliw_slot/smoothing_one_bit.vis test passed with frame rate 3884.88 fps
+programs/3_vliw_slot/smoothing_one_bit.vis test passed with frame rate 18612.3 fps
 Compute Area: 2.82834e+06 um^2
 Memory Area: 3.77984e+06 um^2
-Compute Dynamic Power: 4.71795e-09 W
+Compute Dynamic Power: 9.4359e-10 W
 Memory Dynamic Power: 0.0629568 W
 Compute Subthreshold Leakage: 2.67595e-07 W
 Memory Subthreshold Leakage: 0.00175077 W
 Compute Gate Leakage: 1.71971e-07 W
 Memory Gate Leakage: 0.0030474 W
-programs/3_vliw_slot/prewitt_edge_detection_six_bits.vis test passed with frame rate 6180.78 fps
+programs/3_vliw_slot/prewitt_edge_detection_six_bits.vis test passed with frame rate 5914.08 fps
 Compute Area: 2.82834e+06 um^2
 Memory Area: 3.77984e+06 um^2
-Compute Dynamic Power: 2.30655e-08 W
+Compute Dynamic Power: 1.15328e-09 W
 Memory Dynamic Power: 0.0684094 W
 Compute Subthreshold Leakage: 2.67595e-07 W
 Memory Subthreshold Leakage: 0.00175077 W
 Compute Gate Leakage: 1.71971e-07 W
 Memory Gate Leakage: 0.0030474 W
-programs/3_vliw_slot/smoothing_six_bits.vis test passed with frame rate 8420.91 fps
+programs/3_vliw_slot/smoothing_six_bits.vis test passed with frame rate 8637.37 fps
 Compute Area: 2.82834e+06 um^2
 Memory Area: 3.77984e+06 um^2
-Compute Dynamic Power: 1.46781e-08 W
+Compute Dynamic Power: 1.04843e-09 W
 Memory Dynamic Power: 0.0643626 W
 Compute Subthreshold Leakage: 2.67595e-07 W
 Memory Subthreshold Leakage: 0.00175077 W
 Compute Gate Leakage: 1.71971e-07 W
 Memory Gate Leakage: 0.0030474 W
-programs/4_vliw_slot/edge_detection_one_bit.vis test passed with frame rate 17675.3 fps
+programs/4_vliw_slot/edge_detection_one_bit.vis test passed with frame rate 14692.1 fps
 Compute Area: 3.77112e+06 um^2
 Memory Area: 5.3528e+06 um^2
-Compute Dynamic Power: 4.19373e-09 W
+Compute Dynamic Power: 1.04843e-09 W
 Memory Dynamic Power: 0.0729917 W
 Compute Subthreshold Leakage: 3.56794e-07 W
 Memory Subthreshold Leakage: 0.00212579 W
 Compute Gate Leakage: 2.29295e-07 W
 Memory Gate Leakage: 0.00339528 W
-programs/4_vliw_slot/thinning_one_bit.vis test passed with frame rate 18393.2 fps
+programs/4_vliw_slot/thinning_one_bit.vis test passed with frame rate 16720.2 fps
 Compute Area: 3.77112e+06 um^2
 Memory Area: 5.3528e+06 um^2
-Compute Dynamic Power: 5.24217e-09 W
+Compute Dynamic Power: 1.04843e-09 W
 Memory Dynamic Power: 0.0771059 W
 Compute Subthreshold Leakage: 3.56794e-07 W
 Memory Subthreshold Leakage: 0.00212579 W
 Compute Gate Leakage: 2.29295e-07 W
 Memory Gate Leakage: 0.00339528 W
-programs/4_vliw_slot/smoothing_one_bit.vis test passed with frame rate 16482.1 fps
+programs/4_vliw_slot/smoothing_one_bit.vis test passed with frame rate 15082 fps
 Compute Area: 3.77112e+06 um^2
 Memory Area: 5.3528e+06 um^2
-Compute Dynamic Power: 4.71795e-09 W
+Compute Dynamic Power: 9.4359e-10 W
 Memory Dynamic Power: 0.0697429 W
 Compute Subthreshold Leakage: 3.56794e-07 W
 Memory Subthreshold Leakage: 0.00212579 W
 Compute Gate Leakage: 2.29295e-07 W
 Memory Gate Leakage: 0.00339528 W
-programs/4_vliw_slot/prewitt_edge_detection_six_bits.vis test passed with frame rate 6065.61 fps
+programs/4_vliw_slot/prewitt_edge_detection_six_bits.vis test passed with frame rate 6028.16 fps
 Compute Area: 3.77112e+06 um^2
 Memory Area: 5.3528e+06 um^2
-Compute Dynamic Power: 2.30655e-08 W
+Compute Dynamic Power: 1.3568e-09 W
 Memory Dynamic Power: 0.0887664 W
 Compute Subthreshold Leakage: 3.56794e-07 W
 Memory Subthreshold Leakage: 0.00212579 W
 Compute Gate Leakage: 2.29295e-07 W
 Memory Gate Leakage: 0.00339528 W
-programs/4_vliw_slot/smoothing_six_bits.vis test passed with frame rate 8812.75 fps
+programs/4_vliw_slot/smoothing_six_bits.vis test passed with frame rate 8642.15 fps
 Compute Area: 3.77112e+06 um^2
 Memory Area: 5.3528e+06 um^2
-Compute Dynamic Power: 1.46781e-08 W
+Compute Dynamic Power: 1.46781e-09 W
 Memory Dynamic Power: 0.0992324 W
 Compute Subthreshold Leakage: 3.56794e-07 W
 Memory Subthreshold Leakage: 0.00212579 W
 Compute Gate Leakage: 2.29295e-07 W
 Memory Gate Leakage: 0.00339528 W
-Average per-frame processing time (GPU): 0.156547 ms
-Average per-frame frame rate (GPU): 6387.85 fps
-programs/1_vliw_slot/edge_detection_one_bit.vis test passed with frame rate 297.885 fps
+Average per-frame processing time (GPU): 0.0962592 ms
+Average per-frame frame rate (GPU): 10388.6 fps
+programs/1_vliw_slot/edge_detection_one_bit.vis test passed with frame rate 363.901 fps
 Compute Area: 942779 um^2
 Memory Area: 1.15906e+06 um^2
-Compute Dynamic Power: 4.19373e-09 W
+Compute Dynamic Power: 5.24217e-10 W
 Memory Dynamic Power: 0.0263626 W
 Compute Subthreshold Leakage: 8.91984e-08 W
 Memory Subthreshold Leakage: 0.00100713 W
 Compute Gate Leakage: 5.73237e-08 W
 Memory Gate Leakage: 0.00179051 W
-programs/1_vliw_slot/thinning_one_bit.vis test passed with frame rate 430.663 fps
+programs/1_vliw_slot/thinning_one_bit.vis test passed with frame rate 431.593 fps
 Compute Area: 942779 um^2
 Memory Area: 1.15906e+06 um^2
-Compute Dynamic Power: 4.71795e-09 W
+Compute Dynamic Power: 5.24217e-10 W
 Memory Dynamic Power: 0.0292161 W
 Compute Subthreshold Leakage: 8.91984e-08 W
 Memory Subthreshold Leakage: 0.00100713 W
 Compute Gate Leakage: 5.73237e-08 W
 Memory Gate Leakage: 0.00179051 W
-programs/1_vliw_slot/smoothing_one_bit.vis test passed with frame rate 544.959 fps
+programs/1_vliw_slot/smoothing_one_bit.vis test passed with frame rate 294.118 fps
 Compute Area: 942779 um^2
 Memory Area: 1.15906e+06 um^2
-Compute Dynamic Power: 4.19373e-09 W
+Compute Dynamic Power: 5.24217e-10 W
 Memory Dynamic Power: 0.030176 W
 Compute Subthreshold Leakage: 8.91984e-08 W
 Memory Subthreshold Leakage: 0.00100713 W
 Compute Gate Leakage: 5.73237e-08 W
 Memory Gate Leakage: 0.00179051 W
-programs/1_vliw_slot/prewitt_edge_detection_six_bits.vis test passed with frame rate 84.0054 fps
+programs/1_vliw_slot/prewitt_edge_detection_six_bits.vis test passed with frame rate 91.1245 fps
 Compute Area: 942779 um^2
 Memory Area: 1.15906e+06 um^2
-Compute Dynamic Power: 2.35897e-08 W
+Compute Dynamic Power: 5.24217e-10 W
 Memory Dynamic Power: 0.0273214 W
 Compute Subthreshold Leakage: 8.91984e-08 W
 Memory Subthreshold Leakage: 0.00100713 W
 Compute Gate Leakage: 5.73237e-08 W
 Memory Gate Leakage: 0.00179051 W
-programs/1_vliw_slot/smoothing_six_bits.vis test passed with frame rate 103.008 fps
+programs/1_vliw_slot/smoothing_six_bits.vis test passed with frame rate 95.8589 fps
 Compute Area: 942779 um^2
 Memory Area: 1.15906e+06 um^2
-Compute Dynamic Power: 2.09687e-08 W
+Compute Dynamic Power: 5.24217e-10 W
 Memory Dynamic Power: 0.0270988 W
 Compute Subthreshold Leakage: 8.91984e-08 W
 Memory Subthreshold Leakage: 0.00100713 W
 Compute Gate Leakage: 5.73237e-08 W
 Memory Gate Leakage: 0.00179051 W
-programs/pipelining/edge_detection_one_bit.vis test passed with frame rate 267.738 fps
+programs/pipelining/edge_detection_one_bit.vis test passed with frame rate 347.102 fps
 Compute Area: 942779 um^2
-Memory Area: 1.15906e+06 um^2
-Compute Dynamic Power: 4.19373e-09 W
-Memory Dynamic Power: 0.0162232 W
+Memory Area: 3.15672e+06 um^2
+Compute Dynamic Power: 1.29038e-09 W
+Memory Dynamic Power: 0.100637 W
 Compute Subthreshold Leakage: 8.91984e-08 W
-Memory Subthreshold Leakage: 0.00100713 W
+Memory Subthreshold Leakage: 0.00131788 W
 Compute Gate Leakage: 5.73237e-08 W
-Memory Gate Leakage: 0.00179051 W
-programs/pipelining/thinning_one_bit.vis test passed with frame rate 280.82 fps
+Memory Gate Leakage: 0.00230807 W
+programs/pipelining/thinning_one_bit.vis test passed with frame rate 272.777 fps
 Compute Area: 942779 um^2
-Memory Area: 1.15906e+06 um^2
-Compute Dynamic Power: 4.71795e-09 W
-Memory Dynamic Power: 0.0164341 W
+Memory Area: 3.15672e+06 um^2
+Compute Dynamic Power: 1.17949e-09 W
+Memory Dynamic Power: 0.101471 W
 Compute Subthreshold Leakage: 8.91984e-08 W
-Memory Subthreshold Leakage: 0.00100713 W
+Memory Subthreshold Leakage: 0.00131788 W
 Compute Gate Leakage: 5.73237e-08 W
-Memory Gate Leakage: 0.00179051 W
-programs/pipelining/smoothing_one_bit.vis test passed with frame rate 249.563 fps
+Memory Gate Leakage: 0.00230807 W
+programs/pipelining/smoothing_one_bit.vis test passed with frame rate 356.506 fps
 Compute Area: 942779 um^2
-Memory Area: 1.15906e+06 um^2
-Compute Dynamic Power: 4.19373e-09 W
-Memory Dynamic Power: 0.0219462 W
+Memory Area: 3.15672e+06 um^2
+Compute Dynamic Power: 1.52499e-09 W
+Memory Dynamic Power: 0.134152 W
 Compute Subthreshold Leakage: 8.91984e-08 W
-Memory Subthreshold Leakage: 0.00100713 W
+Memory Subthreshold Leakage: 0.00131788 W
 Compute Gate Leakage: 5.73237e-08 W
-Memory Gate Leakage: 0.00179051 W
-programs/pipelining/prewitt_edge_detection_six_bits.vis test passed with frame rate 86.7077 fps
+Memory Gate Leakage: 0.00230807 W
+programs/pipelining/prewitt_edge_detection_six_bits.vis test passed with frame rate 85.6091 fps
 Compute Area: 942779 um^2
-Memory Area: 1.15906e+06 um^2
-Compute Dynamic Power: 2.35897e-08 W
-Memory Dynamic Power: 0.0273214 W
+Memory Area: 3.15672e+06 um^2
+Compute Dynamic Power: 2.09687e-09 W
+Memory Dynamic Power: 0.165118 W
 Compute Subthreshold Leakage: 8.91984e-08 W
-Memory Subthreshold Leakage: 0.00100713 W
+Memory Subthreshold Leakage: 0.00131788 W
 Compute Gate Leakage: 5.73237e-08 W
-Memory Gate Leakage: 0.00179051 W
-programs/pipelining/smoothing_six_bits.vis test passed with frame rate 76.5755 fps
+Memory Gate Leakage: 0.00230807 W
+programs/pipelining/smoothing_six_bits.vis test passed with frame rate 105.385 fps
 Compute Area: 942779 um^2
-Memory Area: 1.15906e+06 um^2
-Compute Dynamic Power: 2.09687e-08 W
-Memory Dynamic Power: 0.0270988 W
+Memory Area: 3.15672e+06 um^2
+Compute Dynamic Power: 2.09687e-09 W
+Memory Dynamic Power: 0.165018 W
 Compute Subthreshold Leakage: 8.91984e-08 W
-Memory Subthreshold Leakage: 0.00100713 W
+Memory Subthreshold Leakage: 0.00131788 W
 Compute Gate Leakage: 5.73237e-08 W
-Memory Gate Leakage: 0.00179051 W
-programs/2_vliw_slot/edge_detection_one_bit.vis test passed with frame rate 610.501 fps
+Memory Gate Leakage: 0.00230807 W
+programs/2_vliw_slot/edge_detection_one_bit.vis test passed with frame rate 318.167 fps
 Compute Area: 1.88556e+06 um^2
 Memory Area: 2.38501e+06 um^2
-Compute Dynamic Power: 4.19373e-09 W
+Compute Dynamic Power: 8.38746e-10 W
 Memory Dynamic Power: 0.0467226 W
 Compute Subthreshold Leakage: 1.78397e-07 W
 Memory Subthreshold Leakage: 0.00141615 W
 Compute Gate Leakage: 1.14647e-07 W
 Memory Gate Leakage: 0.00251793 W
-programs/2_vliw_slot/thinning_one_bit.vis test passed with frame rate 482.393 fps
+programs/2_vliw_slot/thinning_one_bit.vis test passed with frame rate 536.193 fps
 Compute Area: 1.88556e+06 um^2
 Memory Area: 2.38501e+06 um^2
-Compute Dynamic Power: 4.71795e-09 W
+Compute Dynamic Power: 7.86325e-10 W
 Memory Dynamic Power: 0.0474467 W
 Compute Subthreshold Leakage: 1.78397e-07 W
 Memory Subthreshold Leakage: 0.00141615 W
 Compute Gate Leakage: 1.14647e-07 W
 Memory Gate Leakage: 0.00251793 W
-programs/2_vliw_slot/smoothing_one_bit.vis test passed with frame rate 448.43 fps
+programs/2_vliw_slot/smoothing_one_bit.vis test passed with frame rate 630.517 fps
 Compute Area: 1.88556e+06 um^2
 Memory Area: 2.38501e+06 um^2
-Compute Dynamic Power: 4.19373e-09 W
+Compute Dynamic Power: 6.98955e-10 W
 Memory Dynamic Power: 0.0436833 W
 Compute Subthreshold Leakage: 1.78397e-07 W
 Memory Subthreshold Leakage: 0.00141615 W
 Compute Gate Leakage: 1.14647e-07 W
 Memory Gate Leakage: 0.00251793 W
-programs/2_vliw_slot/prewitt_edge_detection_six_bits.vis test passed with frame rate 114.39 fps
+programs/2_vliw_slot/prewitt_edge_detection_six_bits.vis test passed with frame rate 106.338 fps
 Compute Area: 1.88556e+06 um^2
 Memory Area: 2.38501e+06 um^2
-Compute Dynamic Power: 2.30655e-08 W
+Compute Dynamic Power: 1.00285e-09 W
 Memory Dynamic Power: 0.0557806 W
 Compute Subthreshold Leakage: 1.78397e-07 W
 Memory Subthreshold Leakage: 0.00141615 W
 Compute Gate Leakage: 1.14647e-07 W
 Memory Gate Leakage: 0.00251793 W
-programs/2_vliw_slot/smoothing_six_bits.vis test passed with frame rate 121.64 fps
+programs/2_vliw_slot/smoothing_six_bits.vis test passed with frame rate 165.536 fps
 Compute Area: 1.88556e+06 um^2
 Memory Area: 2.38501e+06 um^2
-Compute Dynamic Power: 1.46781e-08 W
+Compute Dynamic Power: 6.98955e-10 W
 Memory Dynamic Power: 0.0402729 W
 Compute Subthreshold Leakage: 1.78397e-07 W
 Memory Subthreshold Leakage: 0.00141615 W
 Compute Gate Leakage: 1.14647e-07 W
 Memory Gate Leakage: 0.00251793 W
-programs/3_vliw_slot/edge_detection_one_bit.vis test passed with frame rate 309.119 fps
+programs/3_vliw_slot/edge_detection_one_bit.vis test passed with frame rate 507.872 fps
 Compute Area: 2.82834e+06 um^2
 Memory Area: 3.77984e+06 um^2
-Compute Dynamic Power: 4.19373e-09 W
+Compute Dynamic Power: 8.38746e-10 W
 Memory Dynamic Power: 0.0511269 W
 Compute Subthreshold Leakage: 2.67595e-07 W
 Memory Subthreshold Leakage: 0.00175077 W
 Compute Gate Leakage: 1.71971e-07 W
 Memory Gate Leakage: 0.0030474 W
-programs/3_vliw_slot/thinning_one_bit.vis test passed with frame rate 376.364 fps
+programs/3_vliw_slot/thinning_one_bit.vis test passed with frame rate 523.834 fps
 Compute Area: 2.82834e+06 um^2
 Memory Area: 3.77984e+06 um^2
-Compute Dynamic Power: 5.24217e-09 W
+Compute Dynamic Power: 1.04843e-09 W
 Memory Dynamic Power: 0.0685449 W
 Compute Subthreshold Leakage: 2.67595e-07 W
 Memory Subthreshold Leakage: 0.00175077 W
 Compute Gate Leakage: 1.71971e-07 W
 Memory Gate Leakage: 0.0030474 W
-programs/3_vliw_slot/smoothing_one_bit.vis test passed with frame rate 454.959 fps
+programs/3_vliw_slot/smoothing_one_bit.vis test passed with frame rate 293.772 fps
 Compute Area: 2.82834e+06 um^2
 Memory Area: 3.77984e+06 um^2
-Compute Dynamic Power: 4.71795e-09 W
+Compute Dynamic Power: 9.4359e-10 W
 Memory Dynamic Power: 0.0629568 W
 Compute Subthreshold Leakage: 2.67595e-07 W
 Memory Subthreshold Leakage: 0.00175077 W
 Compute Gate Leakage: 1.71971e-07 W
 Memory Gate Leakage: 0.0030474 W
-programs/3_vliw_slot/prewitt_edge_detection_six_bits.vis test passed with frame rate 107.677 fps
+programs/3_vliw_slot/prewitt_edge_detection_six_bits.vis test passed with frame rate 108.648 fps
 Compute Area: 2.82834e+06 um^2
 Memory Area: 3.77984e+06 um^2
-Compute Dynamic Power: 2.30655e-08 W
+Compute Dynamic Power: 1.15328e-09 W
 Memory Dynamic Power: 0.0684094 W
 Compute Subthreshold Leakage: 2.67595e-07 W
 Memory Subthreshold Leakage: 0.00175077 W
 Compute Gate Leakage: 1.71971e-07 W
 Memory Gate Leakage: 0.0030474 W
-programs/3_vliw_slot/smoothing_six_bits.vis test passed with frame rate 164.826 fps
+programs/3_vliw_slot/smoothing_six_bits.vis test passed with frame rate 180.31 fps
 Compute Area: 2.82834e+06 um^2
 Memory Area: 3.77984e+06 um^2
-Compute Dynamic Power: 1.46781e-08 W
+Compute Dynamic Power: 1.04843e-09 W
 Memory Dynamic Power: 0.0643626 W
 Compute Subthreshold Leakage: 2.67595e-07 W
 Memory Subthreshold Leakage: 0.00175077 W
 Compute Gate Leakage: 1.71971e-07 W
 Memory Gate Leakage: 0.0030474 W
-programs/4_vliw_slot/edge_detection_one_bit.vis test passed with frame rate 638.57 fps
+programs/4_vliw_slot/edge_detection_one_bit.vis test passed with frame rate 473.485 fps
 Compute Area: 3.77112e+06 um^2
 Memory Area: 5.3528e+06 um^2
-Compute Dynamic Power: 4.19373e-09 W
+Compute Dynamic Power: 1.04843e-09 W
 Memory Dynamic Power: 0.0729917 W
 Compute Subthreshold Leakage: 3.56794e-07 W
 Memory Subthreshold Leakage: 0.00212579 W
 Compute Gate Leakage: 2.29295e-07 W
 Memory Gate Leakage: 0.00339528 W
-programs/4_vliw_slot/thinning_one_bit.vis test passed with frame rate 508.388 fps
+programs/4_vliw_slot/thinning_one_bit.vis test passed with frame rate 485.909 fps
 Compute Area: 3.77112e+06 um^2
 Memory Area: 5.3528e+06 um^2
-Compute Dynamic Power: 5.24217e-09 W
+Compute Dynamic Power: 1.04843e-09 W
 Memory Dynamic Power: 0.0771059 W
 Compute Subthreshold Leakage: 3.56794e-07 W
 Memory Subthreshold Leakage: 0.00212579 W
 Compute Gate Leakage: 2.29295e-07 W
 Memory Gate Leakage: 0.00339528 W
-programs/4_vliw_slot/smoothing_one_bit.vis test passed with frame rate 507.099 fps
+programs/4_vliw_slot/smoothing_one_bit.vis test passed with frame rate 392.311 fps
 Compute Area: 3.77112e+06 um^2
 Memory Area: 5.3528e+06 um^2
-Compute Dynamic Power: 4.71795e-09 W
+Compute Dynamic Power: 9.4359e-10 W
 Memory Dynamic Power: 0.0697429 W
 Compute Subthreshold Leakage: 3.56794e-07 W
 Memory Subthreshold Leakage: 0.00212579 W
 Compute Gate Leakage: 2.29295e-07 W
 Memory Gate Leakage: 0.00339528 W
-programs/4_vliw_slot/prewitt_edge_detection_six_bits.vis test passed with frame rate 125.723 fps
+programs/4_vliw_slot/prewitt_edge_detection_six_bits.vis test passed with frame rate 124.471 fps
 Compute Area: 3.77112e+06 um^2
 Memory Area: 5.3528e+06 um^2
-Compute Dynamic Power: 2.30655e-08 W
+Compute Dynamic Power: 1.3568e-09 W
 Memory Dynamic Power: 0.0887664 W
 Compute Subthreshold Leakage: 3.56794e-07 W
 Memory Subthreshold Leakage: 0.00212579 W
 Compute Gate Leakage: 2.29295e-07 W
 Memory Gate Leakage: 0.00339528 W
-programs/4_vliw_slot/smoothing_six_bits.vis test passed with frame rate 175.439 fps
+programs/4_vliw_slot/smoothing_six_bits.vis test passed with frame rate 213.63 fps
 Compute Area: 3.77112e+06 um^2
 Memory Area: 5.3528e+06 um^2
-Compute Dynamic Power: 1.46781e-08 W
+Compute Dynamic Power: 1.46781e-09 W
 Memory Dynamic Power: 0.0992324 W
 Compute Subthreshold Leakage: 3.56794e-07 W
 Memory Subthreshold Leakage: 0.00212579 W
 Compute Gate Leakage: 2.29295e-07 W
 Memory Gate Leakage: 0.00339528 W
-Average per-frame processing time (CPU): 5.0701 ms
-Average per-frame frame rate (CPU): 197.235 fps
+Average per-frame processing time (CPU): 4.70135 ms
+Average per-frame frame rate (CPU): 212.705 fps

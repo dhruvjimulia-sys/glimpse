@@ -78,7 +78,7 @@ double getLogicScalingFactor(size_t source_technology, size_t target_technology)
 double cmos_Ig_leakage(double nWidth, double pWidth, TechnologyParameter g_tp);
 double cmos_Isub_leakage(double nWidth, double pWidth,
     TechnologyParameter g_tp);
-CACTIResult getCACTIResult(std::string filename, size_t vliwWidth);
+CACTIResult getCACTIResult(std::string filename, size_t vliwWidth, bool isPipelining);
 
 // Compute area and power functions
 // in um^2
@@ -121,33 +121,34 @@ double getComputeDynamicPower(Program program) {
         (1.15 / 3 / 1e9 / 4 / 1.3 / 1.3 * SUPPLY_VOLTAGE * SUPPLY_VOLTAGE *
          (TARGET_TECHNOLOGY / 90.0)) /
         64;  // This is per cycle energy(nJ)
-    // PIPELINING: CLOCK_FREQUENCY needs to be divided in four to get effective clock frequency for ALU (in non-pipelining case)
-    return (numComputeAccesses(program) * per_access_energy * (CLOCK_FREQUENCY / 4)) /
+    // In non-pipelining case, CLOCK_FREQUENCY needs to be divided in four to get effective clock frequency for ALU
+    double effective_clock_frequency = (double) (program.isPipelining ? CLOCK_FREQUENCY : CLOCK_FREQUENCY / 4);
+    return ((numComputeAccesses(program) * per_access_energy * effective_clock_frequency) / program.instructionCount) /
            NANO_ORDER_OF_MAGNITUDE;  // in W
 }
 
 // in um^2
-double getMemoryArea(size_t vliwWidth) {
-    CACTIResult memoryResult = getCACTIResult("memory.cfg", vliwWidth);
-    CACTIResult registersResult = getCACTIResult("registers.cfg", vliwWidth);
+double getMemoryArea(size_t vliwWidth, bool isPipelining) {
+    CACTIResult memoryResult = getCACTIResult("memory.cfg", vliwWidth, isPipelining);
+    CACTIResult registersResult = getCACTIResult("registers.cfg", vliwWidth, isPipelining);
     // area from CACTI is in mm^2
     return (((memoryResult.height * memoryResult.width) / MEMORY_MULTIPLIER +
            ((registersResult.height * registersResult.width) / REGISTER_MULTIPLIER) * vliwWidth) * MILLI_TO_MICRO_ORDER_OF_MAGNITUDE) * MILLI_TO_MICRO_ORDER_OF_MAGNITUDE;
 }
 
 // in W
-double getMemorySubthresholdLeakage(size_t vliwWidth) {
-    CACTIResult memoryResult = getCACTIResult("memory.cfg", vliwWidth);
-    CACTIResult registersResult = getCACTIResult("registers.cfg", vliwWidth);
+double getMemorySubthresholdLeakage(size_t vliwWidth, bool isPipelining) {
+    CACTIResult memoryResult = getCACTIResult("memory.cfg", vliwWidth, isPipelining);
+    CACTIResult registersResult = getCACTIResult("registers.cfg", vliwWidth, isPipelining);
     // leakage_power from CACTI is in mW
     return (memoryResult.leakage_power / MEMORY_MULTIPLIER +
            (registersResult.leakage_power / REGISTER_MULTIPLIER) * vliwWidth) / MILLI_ORDER_OF_MAGNITUDE;
 }
 
 // in W
-double getMemoryGateLeakage(size_t vliwWidth) {
-    CACTIResult memoryResult = getCACTIResult("memory.cfg", vliwWidth);
-    CACTIResult registersResult = getCACTIResult("registers.cfg", vliwWidth);
+double getMemoryGateLeakage(size_t vliwWidth, bool isPipelining) {
+    CACTIResult memoryResult = getCACTIResult("memory.cfg", vliwWidth, isPipelining);
+    CACTIResult registersResult = getCACTIResult("registers.cfg", vliwWidth, isPipelining);
     // gate_leakage_power from CACTI is in mW
     return (memoryResult.gate_leakage_power / MEMORY_MULTIPLIER +
            (registersResult.gate_leakage_power / REGISTER_MULTIPLIER) * vliwWidth) / MILLI_ORDER_OF_MAGNITUDE;
@@ -155,12 +156,13 @@ double getMemoryGateLeakage(size_t vliwWidth) {
 
 // in W
 double getMemoryDynamicPower(Program program) {
-    CACTIResult memoryResult = getCACTIResult("memory.cfg", program.vliwWidth);
+    CACTIResult memoryResult = getCACTIResult("memory.cfg", program.vliwWidth, program.isPipelining);
     CACTIResult registersResult =
-        getCACTIResult("registers.cfg", program.vliwWidth);
+        getCACTIResult("registers.cfg", program.vliwWidth, program.isPipelining);
     // dynamic_read_energy_per_access from CACTI is in nJ
-    // PIPELINING: CLOCK_FREQUENCY needs to be divided in four to get effective clock frequency for various components
+    // In non-pipelining case, CLOCK_FREQUENCY needs to be divided in four to get effective clock frequency for various components
     // This is equivalent to instruction cycle clock frequency
+    double effective_clock_frequency = (double) (program.isPipelining ? CLOCK_FREQUENCY : CLOCK_FREQUENCY / 4);
     return ((((memoryResult.dynamic_read_energy_per_access *
            numMemoryReadAccesses(program) +
            memoryResult.dynamic_write_energy_per_access *
@@ -168,7 +170,7 @@ double getMemoryDynamicPower(Program program) {
            ((registersResult.dynamic_read_energy_per_access *
                numRegisterReadAccesses(program) +
            registersResult.dynamic_write_energy_per_access *
-               numRegisterWriteAccesses(program)) / REGISTER_MULTIPLIER)) / program.instructionCount) * (CLOCK_FREQUENCY / 4)) / NANO_ORDER_OF_MAGNITUDE;
+               numRegisterWriteAccesses(program)) / REGISTER_MULTIPLIER)) / program.instructionCount) * effective_clock_frequency) / NANO_ORDER_OF_MAGNITUDE;
 }
 
 // Technology scaling parameters below taken from McPAT
@@ -981,7 +983,7 @@ void replaceAllInstancesOf(std::string& str, const char* from, const std::string
     }
 }
 
-CACTIResult getCACTIResult(std::string filename, size_t vliwWidth) {
+CACTIResult getCACTIResult(std::string filename, size_t vliwWidth, bool isPipelining) {
     // Read CACTI input file "filename"
     std::string filenameWithDirectory = "cacti/" + filename;
     std::ifstream file(filenameWithDirectory);
@@ -996,10 +998,33 @@ CACTIResult getCACTIResult(std::string filename, size_t vliwWidth) {
         exit(1);
     }
 
-    // Replace all instances of ${VLIW} in the file with the actual vliwWidth
-    replaceAllInstancesOf(fileContent, "${VLIW}", std::to_string(vliwWidth));
+    replaceAllInstancesOf(fileContent, "${MEMORY_READ_WRITE_PORT}", std::to_string(
+        !isPipelining ? vliwWidth : 0
+    ));
+    replaceAllInstancesOf(fileContent, "${MEMORY_READ_PORT}", std::to_string(
+        !isPipelining ? 0 : (2 * vliwWidth)
+    ));
+    replaceAllInstancesOf(fileContent, "${MEMORY_WRITE_PORT}", std::to_string(
+        !isPipelining ? 0 : vliwWidth
+    ));
     // Replace all instances of ${BUS_WIDTH} with vliwWidth * 5
-    replaceAllInstancesOf(fileContent, "${BUS_WIDTH}", std::to_string(vliwWidth * 5));
+    // For pipelining case,  2 reads and 1 write simultenously
+    replaceAllInstancesOf(fileContent, "${MEMORY_BUS_WIDTH}", std::to_string(vliwWidth * 5 * (
+        !isPipelining ? 1 : 3
+    )));
+    // In pipelining case, (4 reads + 4 writes) * 2 bits = 16 bits
+    // In non-pipelining case, (3 reads + 2 writes) * 2 bits = 10 bits
+    replaceAllInstancesOf(fileContent, "${REGISTER_BUS_WIDTH}", std::to_string(
+        !isPipelining ? 10 : 16
+    ));
+    // In non-pipelining case, 3 exclusive read ports and 2 exclusive write ports
+    // In pipelining case, 4 exclusive read ports and 4 exclusive write ports
+    replaceAllInstancesOf(fileContent, "${REGISTER_READ_PORT}", std::to_string(
+        !isPipelining ? 3 : 4
+    ));
+    replaceAllInstancesOf(fileContent, "${REGISTER_WRITE_PORT}", std::to_string(
+        !isPipelining ? 2 : 4
+    ));
     replaceAllInstancesOf(fileContent, "${TEMPERATURE}", std::to_string(TEMPERATURE));
     replaceAllInstancesOf(fileContent, "${TECHNOLOGY}", std::to_string(((double) TARGET_TECHNOLOGY) / MICRO_TO_NANO_ORDER_OF_MAGNITUDE));
     replaceAllInstancesOf(fileContent, "${TECHTYPE}", getTechnologyName(TECH_TYPE));

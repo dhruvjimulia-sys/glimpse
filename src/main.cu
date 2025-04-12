@@ -550,13 +550,13 @@ void testProgram(std::string programFilename,
 
     // Print power and area
     double computeArea = getComputeArea(program.vliwWidth) * dimension * dimension;
-    double memoryArea = getMemoryArea(program.vliwWidth) * dimension * dimension;
+    double memoryArea = getMemoryArea(program.vliwWidth, program.isPipelining) * dimension * dimension;
     double computeDynPower = getComputeDynamicPower(program) * dimension * dimension;
     double memoryDynPower = getMemoryDynamicPower(program) * dimension * dimension;
     double computeSubThreshLeakage = getComputeSubthresholdLeakage(program.vliwWidth) * dimension * dimension;
-    double memorySubThreshLeakage = getMemorySubthresholdLeakage(program.vliwWidth) * dimension * dimension;
+    double memorySubThreshLeakage = getMemorySubthresholdLeakage(program.vliwWidth, program.isPipelining) * dimension * dimension;
     double computeGateLeakage = getComputeGateLeakage(program.vliwWidth) * dimension * dimension;
-    double memoryGateLeakage = getMemoryGateLeakage(program.vliwWidth) * dimension * dimension;
+    double memoryGateLeakage = getMemoryGateLeakage(program.vliwWidth, program.isPipelining) * dimension * dimension;
 
     std::cout << "Compute Area: " << computeArea << " um^2" << std::endl;
     std::cout << "Memory Area: " << memoryArea << " um^2" << std::endl;
