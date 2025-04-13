@@ -1,8 +1,8 @@
 #include "pe.h"
 // ceil(image_size / (blockDim.x * gridDim.x * blockDim.y * gridDim.y))
 // = ceil(image_size / (NUM_THREADS_PER_BLOCK_PER_DIM * NUM_THREADS_PER_BLOCK_PER_DIM * MAX_BLOCK_SIZE * MAX_BLOCK_SIZE))
-#define MAX_NUM_PIXELS_PER_THREAD 8
-
+#define MAX_NUM_PIXELS_PER_THREAD 1821
+ 
 __device__ __host__ bool getBitAt(uint8_t pixel_value, size_t bit_num) {
     if (bit_num >= 8) {
         printf("PD called more times than number of bits in image");
@@ -24,12 +24,9 @@ __device__ bool getNeighbourValue(
     return neighbour_shared_values[neighbour_index * num_shared_neighbours + shared_neighbour_value - 1];
 }
 
-// Note: MEMORY_SIZE_IN_BITS
-constexpr int MEMORY_SIZE_IN_BITS = 24;
-
 __device__ bool getInstructionInputValue(
     InputC inputc,
-    bool memory[][MEMORY_SIZE_IN_BITS],
+    bool* memory,
     uint8_t* image,
     size_t pd_bit,
     bool* pd_increment,
@@ -50,7 +47,7 @@ __device__ bool getInstructionInputValue(
 ) {
     bool input_value = false;
     switch (inputc.input.inputKind) {
-        case InputKind::Address: input_value = memory[num_pixel][inputc.input.address]; break;
+        case InputKind::Address: input_value = memory[offset * MEMORY_SIZE_IN_BITS + inputc.input.address]; break;
         case InputKind::ZeroValue: input_value = false; break;
         case InputKind::PD:
             input_value = getBitAt(image[offset], pd_bit);
@@ -137,17 +134,16 @@ __global__ void processingElemKernel(
     size_t num_debug_outputs,
     size_t vliw_width,
     bool use_shared_memory,
-    bool is_pipelining
+    bool is_pipelining,
+    bool* local_memory_values,
+    bool* carry_register_values,
+    bool* result_values
 ) {
     size_t x = threadIdx.x + blockIdx.x * blockDim.x;
     size_t y = threadIdx.y + blockIdx.y * blockDim.y;
     size_t offset = x + y * blockDim.x * gridDim.x;
     // Note: PIPELINE_WIDTH
     const size_t PIPELINE_WIDTH = 3;
-    // Note: MAX_VLIW_WIDTH
-    const size_t MAX_VLIW_WIDTH = 4;
-    // Note: MEMORY_SIZE_IN_BITS
-    const size_t MEMORY_SIZE_IN_BITS = 24;
     
     if (offset < image_size) {
         cg::grid_group grid = cg::this_grid();
@@ -159,27 +155,6 @@ __global__ void processingElemKernel(
         //     neighbour_shared_values_cache[threadIdx.y][threadIdx.x] = false;
         //     __syncthreads();
         // }
-
-        bool memory[MAX_NUM_PIXELS_PER_THREAD][MEMORY_SIZE_IN_BITS];
-        for (size_t j = 0; j < MAX_NUM_PIXELS_PER_THREAD; j++) {
-            for (size_t i = 0; i < MEMORY_SIZE_IN_BITS; i++) {
-                memory[j][i] = false;
-            }
-        }
-        bool carry_register[MAX_NUM_PIXELS_PER_THREAD][MAX_VLIW_WIDTH];
-        for (size_t j = 0; j < MAX_NUM_PIXELS_PER_THREAD; j++) {
-            for (size_t i = 0; i < MAX_VLIW_WIDTH; i++) {
-                carry_register[j][i] = false;
-            }
-        }
-        bool result_values[MAX_NUM_PIXELS_PER_THREAD][MAX_VLIW_WIDTH][PIPELINE_WIDTH];
-        for (size_t k = 0; k < MAX_NUM_PIXELS_PER_THREAD; k++) {
-            for (size_t i = 0; i < MAX_VLIW_WIDTH; i++) {
-                for (size_t j = 0; j < PIPELINE_WIDTH; j++) {
-                    result_values[k][i][j] = false;
-                }
-            }
-        }
         size_t pd_bit = 0;
         bool pd_increment = false;
         size_t output_number = 0;
@@ -211,13 +186,13 @@ __global__ void processingElemKernel(
                         }
                         bool carryval = false;
                         switch (instruction.carry) {
-                            case Carry::CR: carryval = carry_register[num_pixel][j]; break;
+                            case Carry::CR: carryval = carry_register_values[offset * vliw_width + j]; break;
                             case Carry::One: carryval = true; break;
                             case Carry::Zero: carryval = false; break;
                         }
                         bool input_one = getInstructionInputValue(
                             instruction.input1,
-                            memory,
+                            local_memory_values,
                             image,
                             pd_bit,
                             &pd_increment,
@@ -238,7 +213,7 @@ __global__ void processingElemKernel(
                         );
                         bool input_two = getInstructionInputValue(
                             instruction.input2,
-                            memory,
+                            local_memory_values,
                             image,
                             pd_bit,
                             &pd_increment,
@@ -269,11 +244,11 @@ __global__ void processingElemKernel(
                         const bool carry = (carryval && (input_one != input_two)) || (input_one && input_two);
 
                         // Assuming can only be two values
-                        result_values[num_pixel][j][i % PIPELINE_WIDTH] = (instruction.resultType.value == 's') ? sum : carry;
+                        result_values[(offset * vliw_width + j) * PIPELINE_WIDTH + (i % PIPELINE_WIDTH)] = (instruction.resultType.value == 's') ? sum : carry;
 
                         // Interesting choice...
                         if (instruction.carry == Carry::CR) {
-                            carry_register[num_pixel][j] = carry;
+                            carry_register_values[offset * vliw_width + j] = carry;
                         }
                     }
                 }
@@ -289,11 +264,11 @@ __global__ void processingElemKernel(
                         }
                         size_t resultvalue = 
                         !is_pipelining ?
-                        result_values[num_pixel][j][i % PIPELINE_WIDTH] :
-                        result_values[num_pixel][j][(i - PIPELINE_WIDTH + 1) % PIPELINE_WIDTH];
+                        result_values[(offset * vliw_width + j) * PIPELINE_WIDTH + (i % PIPELINE_WIDTH)] :
+                        result_values[(offset * vliw_width + j) * PIPELINE_WIDTH + ((i - PIPELINE_WIDTH + 1) % PIPELINE_WIDTH)];
                         switch (instruction.result.resultKind) {
                             case ResultKind::Address:
-                                memory[num_pixel][instruction.result.address] = resultvalue;
+                                local_memory_values[offset * MEMORY_SIZE_IN_BITS + instruction.result.address] = resultvalue;
                                 break;
                             case ResultKind::Neighbour:
                                 neighbour_update_pc = pc;

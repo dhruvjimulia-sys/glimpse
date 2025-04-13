@@ -12,6 +12,8 @@ namespace cg = cooperative_groups;
 // Note: MAX_NUM_INSTRUCTIONS set here (program.instructionCount *
 // program.vliwWidth must be less than or equal to this value)
 #define MAX_NUM_INSTRUCTIONS 500
+// Note: MEMORY_SIZE_IN_BITS
+#define MEMORY_SIZE_IN_BITS 24
 extern __constant__ char
     dev_instructions[sizeof(Instruction) * MAX_NUM_INSTRUCTIONS];
 
@@ -28,4 +30,5 @@ __global__ void processingElemKernel(
     bool* external_values, size_t image_size, size_t image_x_dim,
     size_t image_y_dim, size_t num_outputs, size_t num_shared_neighbours,
     size_t* debug_output, size_t num_debug_outputs, size_t vliw_width,
-    bool use_shared_memory, bool is_pipelining);
+    bool use_shared_memory, bool is_pipelining, bool* local_memory_values,
+    bool* carry_register_values, bool* result_values);

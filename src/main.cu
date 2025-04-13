@@ -18,6 +18,15 @@ __constant__ char dev_instructions[sizeof(Instruction) * MAX_NUM_INSTRUCTIONS];
 
 uint8_t* transform_image(const char* filename, int new_dimension, int new_bits) {
     int width, height, channels;
+    // Check if the file exists
+    FILE *file = fopen(filename, "r");
+    if (!file) {
+        std::cerr << "Error: Could not open file " << filename << std::endl;
+        exit(EXIT_SUCCESS);
+    } else {
+        fclose(file);
+    }
+
     uint8_t* img_data = stbi_load(filename, &width, &height, &channels, 0);
     if (!img_data) {
         return nullptr;
@@ -125,6 +134,24 @@ std::pair<bool *, float> process_image_gpu(Program program, uint8_t* pixels, siz
     HANDLE_ERROR(cudaMalloc((void **) &dev_external_values, external_values_mem_size));
     HANDLE_ERROR(cudaMemset(dev_external_values, 0, external_values_mem_size));
 
+    // local memory values
+    bool* dev_local_memory_values;
+    size_t local_memory_values_mem_size = sizeof(bool) * image_size * MEMORY_SIZE_IN_BITS;
+    HANDLE_ERROR(cudaMalloc((void **) &dev_local_memory_values, local_memory_values_mem_size));
+    HANDLE_ERROR(cudaMemset(dev_local_memory_values, 0, local_memory_values_mem_size));
+
+    // carry register values
+    bool* dev_carry_register_values;
+    size_t carry_register_values_mem_size = sizeof(bool) * image_size * program.vliwWidth;
+    HANDLE_ERROR(cudaMalloc((void **) &dev_carry_register_values, carry_register_values_mem_size));
+    HANDLE_ERROR(cudaMemset(dev_carry_register_values, 0, carry_register_values_mem_size));
+
+    // result values
+    const size_t PIPELINE_WIDTH = 3;
+    bool* dev_result_values;
+    HANDLE_ERROR(cudaMalloc((void **) &dev_result_values, image_size * PIPELINE_WIDTH * program.vliwWidth));
+    HANDLE_ERROR(cudaMemset(dev_result_values, 0, image_size * PIPELINE_WIDTH * program.vliwWidth));
+
     cudaEvent_t start, stop;
     float elapsedTime;
     
@@ -142,23 +169,6 @@ std::pair<bool *, float> process_image_gpu(Program program, uint8_t* pixels, siz
     );
     dim3 threads(NUM_THREADS_PER_BLOCK_PER_DIM, NUM_THREADS_PER_BLOCK_PER_DIM);
 
-    // processingElemKernel<<<blocks, threads>>>(
-    //     program.instructionCount,
-    //     dev_image,
-    //     dev_neighbour_shared_values,
-    //     dev_neighbour_program_counter,
-    //     dev_external_values,
-    //     image_size,
-    //     image_x_dim,
-    //     image_y_dim,
-    //     program_num_outputs,
-    //     program_num_shared_neighbours,
-    //     dev_debug_output,
-    //     num_debug_outputs,
-    //     program.vliwWidth,
-    //     use_shared_memory,
-    //     program.isPipelining
-    // );
     void *kernelArgs[] = {
         (void *) &program.instructionCount,
         (void *) &dev_image,
@@ -174,7 +184,10 @@ std::pair<bool *, float> process_image_gpu(Program program, uint8_t* pixels, siz
         (void *) &num_debug_outputs,
         (void *) &program.vliwWidth,
         (void *) &use_shared_memory,
-        (void *) &program.isPipelining
+        (void *) &program.isPipelining,
+        (void *) &dev_local_memory_values,
+        (void *) &dev_carry_register_values,
+        (void *) &dev_result_values
     };
     cudaLaunchCooperativeKernel((void *) processingElemKernel, blocks, threads, kernelArgs);
 
@@ -210,6 +223,9 @@ std::pair<bool *, float> process_image_gpu(Program program, uint8_t* pixels, siz
     HANDLE_ERROR(cudaFree(dev_neighbour_shared_values));
     HANDLE_ERROR(cudaFree(dev_neighbour_program_counter));
     HANDLE_ERROR(cudaFree(dev_external_values));
+    HANDLE_ERROR(cudaFree(dev_local_memory_values));
+    HANDLE_ERROR(cudaFree(dev_carry_register_values));
+    HANDLE_ERROR(cudaFree(dev_result_values));
     // HANDLE_ERROR(cudaFree(dev_debug_output));
 
     return {external_values, elapsedTime};
@@ -286,8 +302,6 @@ std::pair<bool *, float> process_image_cpu(Program program, uint8_t* pixels, siz
     for (size_t i = 0; i < image_size * program_num_shared_neighbours; i++) {
         neighbour_shared_values[i] = false;
     }
-    // Note: MEMORY_SIZE_IN_BITS
-    const size_t MEMORY_SIZE_IN_BITS = 24;
     bool* local_memory_values = (bool *) malloc(image_size * MEMORY_SIZE_IN_BITS);
     for (size_t i = 0; i < image_size * MEMORY_SIZE_IN_BITS; i++) {
         local_memory_values[i] = false;
@@ -721,7 +735,6 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
     //     }
     // }
 
-    // Note: MAX_VLIW_WIDTH set to 4 in pe.cu
     size_t min_vliw_width = 1;
     size_t max_vliw_width = 4;
     // Note: Need to change this if we need to add more tests
@@ -826,8 +839,8 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
 int main() {
     queryGPUProperties();
 
-    const char *imageFilename = "images/windmill_256.jpg";
-    size_t dimension = 256;
+    const char *imageFilename = "images/windmill_512.jpg";
+    size_t dimension = 512;
 
     std::pair<double, double> gpu_tests_result = testAllPrograms(imageFilename, dimension, true);
     // std::cout << "Average real-time processing time (GPU): " << gpu_tests_result.first << " ms" << std::endl;
