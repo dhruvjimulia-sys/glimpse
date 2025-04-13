@@ -42,5 +42,8 @@ void queryGPUProperties() {
         std::cout << "  Memory bus width: " << deviceProp.memoryBusWidth << " bits" << std::endl;
         std::cout << "  Peak memory bandwidth: "
                   << 2.0 * deviceProp.memoryClockRate * (deviceProp.memoryBusWidth / 8) / 1.0e6 << " GB/s" << std::endl;
+        int supportsCoopLaunch = 0;
+        cudaDeviceGetAttribute(&supportsCoopLaunch, cudaDevAttrCooperativeLaunch, device);
+        std::cout << "  Supports cooperative launch: " << (supportsCoopLaunch ? "Yes" : "No") << std::endl;
     }
 }

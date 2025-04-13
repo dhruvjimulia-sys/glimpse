@@ -133,28 +133,50 @@ std::pair<bool *, float> process_image_gpu(Program program, uint8_t* pixels, siz
         
     HANDLE_ERROR(cudaEventRecord(start, 0));
 
+    // TODO compute actual MAX_BLOCK_SIZE
+    constexpr size_t MAX_BLOCK_SIZE = 6;
+
     dim3 blocks(
-        (image_x_dim + NUM_THREADS_PER_BLOCK_PER_DIM - 1) / NUM_THREADS_PER_BLOCK_PER_DIM,
-        (image_y_dim + NUM_THREADS_PER_BLOCK_PER_DIM - 1) / NUM_THREADS_PER_BLOCK_PER_DIM
+        std::min((image_x_dim + NUM_THREADS_PER_BLOCK_PER_DIM - 1) / NUM_THREADS_PER_BLOCK_PER_DIM, MAX_BLOCK_SIZE),
+        std::min((image_y_dim + NUM_THREADS_PER_BLOCK_PER_DIM - 1) / NUM_THREADS_PER_BLOCK_PER_DIM, MAX_BLOCK_SIZE)
     );
     dim3 threads(NUM_THREADS_PER_BLOCK_PER_DIM, NUM_THREADS_PER_BLOCK_PER_DIM);
-    processingElemKernel<<<blocks, threads>>>(
-        program.instructionCount,
-        dev_image,
-        dev_neighbour_shared_values,
-        dev_neighbour_program_counter,
-        dev_external_values,
-        image_size,
-        image_x_dim,
-        image_y_dim,
-        program_num_outputs,
-        program_num_shared_neighbours,
-        dev_debug_output,
-        num_debug_outputs,
-        program.vliwWidth,
-        use_shared_memory,
-        program.isPipelining
-    );
+
+    // processingElemKernel<<<blocks, threads>>>(
+    //     program.instructionCount,
+    //     dev_image,
+    //     dev_neighbour_shared_values,
+    //     dev_neighbour_program_counter,
+    //     dev_external_values,
+    //     image_size,
+    //     image_x_dim,
+    //     image_y_dim,
+    //     program_num_outputs,
+    //     program_num_shared_neighbours,
+    //     dev_debug_output,
+    //     num_debug_outputs,
+    //     program.vliwWidth,
+    //     use_shared_memory,
+    //     program.isPipelining
+    // );
+    void *kernelArgs[] = {
+        (void *) &program.instructionCount,
+        (void *) &dev_image,
+        (void *) &dev_neighbour_shared_values,
+        (void *) &dev_neighbour_program_counter,
+        (void *) &dev_external_values,
+        (void *) &image_size,
+        (void *) &image_x_dim,
+        (void *) &image_y_dim,
+        (void *) &program_num_outputs,
+        (void *) &program_num_shared_neighbours,
+        (void *) &dev_debug_output,
+        (void *) &num_debug_outputs,
+        (void *) &program.vliwWidth,
+        (void *) &use_shared_memory,
+        (void *) &program.isPipelining
+    };
+    cudaLaunchCooperativeKernel((void *) processingElemKernel, blocks, threads, kernelArgs);
 
     HANDLE_ERROR(cudaPeekAtLastError());
 
@@ -549,23 +571,23 @@ void testProgram(std::string programFilename,
     }
 
     // Print power and area
-    double computeArea = getComputeArea(program.vliwWidth) * dimension * dimension;
-    double memoryArea = getMemoryArea(program.vliwWidth, program.isPipelining) * dimension * dimension;
-    double computeDynPower = getComputeDynamicPower(program) * dimension * dimension;
-    double memoryDynPower = getMemoryDynamicPower(program) * dimension * dimension;
-    double computeSubThreshLeakage = getComputeSubthresholdLeakage(program.vliwWidth) * dimension * dimension;
-    double memorySubThreshLeakage = getMemorySubthresholdLeakage(program.vliwWidth, program.isPipelining) * dimension * dimension;
-    double computeGateLeakage = getComputeGateLeakage(program.vliwWidth) * dimension * dimension;
-    double memoryGateLeakage = getMemoryGateLeakage(program.vliwWidth, program.isPipelining) * dimension * dimension;
+    // double computeArea = getComputeArea(program.vliwWidth) * dimension * dimension;
+    // double memoryArea = getMemoryArea(program.vliwWidth, program.isPipelining) * dimension * dimension;
+    // double computeDynPower = getComputeDynamicPower(program) * dimension * dimension;
+    // double memoryDynPower = getMemoryDynamicPower(program) * dimension * dimension;
+    // double computeSubThreshLeakage = getComputeSubthresholdLeakage(program.vliwWidth) * dimension * dimension;
+    // double memorySubThreshLeakage = getMemorySubthresholdLeakage(program.vliwWidth, program.isPipelining) * dimension * dimension;
+    // double computeGateLeakage = getComputeGateLeakage(program.vliwWidth) * dimension * dimension;
+    // double memoryGateLeakage = getMemoryGateLeakage(program.vliwWidth, program.isPipelining) * dimension * dimension;
 
-    std::cout << "Compute Area: " << computeArea << " um^2" << std::endl;
-    std::cout << "Memory Area: " << memoryArea << " um^2" << std::endl;
-    std::cout << "Compute Dynamic Power: " << computeDynPower << " W" << std::endl;
-    std::cout << "Memory Dynamic Power: " << memoryDynPower << " W" << std::endl;
-    std::cout << "Compute Subthreshold Leakage: " << computeSubThreshLeakage << " W" << std::endl;
-    std::cout << "Memory Subthreshold Leakage: " << memorySubThreshLeakage << " W" << std::endl;
-    std::cout << "Compute Gate Leakage: " << computeGateLeakage << " W" << std::endl;
-    std::cout << "Memory Gate Leakage: " << memoryGateLeakage << " W" << std::endl;
+    // std::cout << "Compute Area: " << computeArea << " um^2" << std::endl;
+    // std::cout << "Memory Area: " << memoryArea << " um^2" << std::endl;
+    // std::cout << "Compute Dynamic Power: " << computeDynPower << " W" << std::endl;
+    // std::cout << "Memory Dynamic Power: " << memoryDynPower << " W" << std::endl;
+    // std::cout << "Compute Subthreshold Leakage: " << computeSubThreshLeakage << " W" << std::endl;
+    // std::cout << "Memory Subthreshold Leakage: " << memorySubThreshLeakage << " W" << std::endl;
+    // std::cout << "Compute Gate Leakage: " << computeGateLeakage << " W" << std::endl;
+    // std::cout << "Memory Gate Leakage: " << memoryGateLeakage << " W" << std::endl;
 
     free(image);
     free(processed_image);
@@ -804,8 +826,8 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
 int main() {
     queryGPUProperties();
 
-    const char *imageFilename = "images/windmill_128.jpg";
-    size_t dimension = 128;
+    const char *imageFilename = "images/windmill_256.jpg";
+    size_t dimension = 256;
 
     std::pair<double, double> gpu_tests_result = testAllPrograms(imageFilename, dimension, true);
     // std::cout << "Average real-time processing time (GPU): " << gpu_tests_result.first << " ms" << std::endl;
