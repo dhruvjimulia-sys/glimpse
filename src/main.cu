@@ -136,7 +136,6 @@ std::pair<bool *, float> process_image_gpu(Program program, uint8_t* pixels, siz
     const size_t PIPELINE_WIDTH = 3;
     bool* dev_result_values;
     HANDLE_ERROR(cudaMalloc((void **) &dev_result_values, image_size * PIPELINE_WIDTH * program.vliwWidth));
-    HANDLE_ERROR(cudaMemset(dev_result_values, 0, image_size * PIPELINE_WIDTH * program.vliwWidth));
 
     cudaEvent_t start, stop;
     float elapsedTime;
@@ -310,13 +309,8 @@ std::pair<bool *, float> process_image_cpu(Program program, uint8_t* pixels, siz
     bool shared_neighbour_increment = false;
 
     // Note: PIPELINE_WIDTH
-    // TODO PIPELINE_WIDTH = 1 if no pipelining (saves memory)
-    size_t PIPELINE_WIDTH = 3;
+    size_t PIPELINE_WIDTH = program.isPipelining ? 3 : 1;
     bool* result_values = (bool *) malloc(image_size * PIPELINE_WIDTH * program.vliwWidth);
-    // TODO initializing result_values unnecessary?
-    for (size_t i = 0; i < image_size * PIPELINE_WIDTH * program.vliwWidth; i++) {
-        result_values[i] = false;
-    }
 
     auto start_time = std::chrono::high_resolution_clock::now();
     size_t pd_bit = 0;
@@ -799,7 +793,7 @@ int main() {
     queryGPUProperties();
 
     const char *imageFilename = "images/peacock_feather_4096.jpg";
-    size_t dimension = 100;
+    size_t dimension = 512;
 
     std::pair<double, double> gpu_tests_result = testAllPrograms(imageFilename, dimension, true);
     std::cout << "Average real-time processing time (GPU): " << gpu_tests_result.first << " ms" << std::endl;
