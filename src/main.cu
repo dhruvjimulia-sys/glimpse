@@ -36,21 +36,18 @@ uint8_t* transform_image(const char* filename, int new_dimension, int new_bits) 
         stbi_image_free(img_data);
         return nullptr;
     }
-
-    // TODO Make resize automatic
-    uint8_t* resized_data = img_data;
     
-    // (uint8_t*)malloc(new_dimension * new_dimension * channels);
-    // if (!resized_data) {
-    //     stbi_image_free(img_data);
-    //     return nullptr;
-    // }
+    uint8_t* resized_data = (uint8_t*)malloc(new_dimension * new_dimension * channels);
+    if (!resized_data) {
+        stbi_image_free(img_data);
+        return nullptr;
+    }
 
-    // // Resize the image
-    // stbir_resize_uint8(img_data, width, height, 0,
-    //                    resized_data, new_dimension, new_dimension, 0,
-    //                    channels);
-    // stbi_image_free(img_data); // Free original image data
+    // Resize the image
+    stbir_resize_uint8_linear(img_data, width, height, 0,
+                       resized_data, new_dimension, new_dimension, 0,
+                       (stbir_pixel_layout) channels);
+    stbi_image_free(img_data); // Free original image data
 
     // Convert to grayscale (1 channel)
     uint8_t* gray_data = (uint8_t*)malloc(new_dimension * new_dimension);
@@ -313,7 +310,7 @@ std::pair<bool *, float> process_image_cpu(Program program, uint8_t* pixels, siz
     bool shared_neighbour_increment = false;
 
     // Note: PIPELINE_WIDTH
-    // TODO is PIPELINE_WIDTH = 1 equivalent to no pipelining?
+    // TODO PIPELINE_WIDTH = 1 if no pipelining (saves memory)
     size_t PIPELINE_WIDTH = 3;
     bool* result_values = (bool *) malloc(image_size * PIPELINE_WIDTH * program.vliwWidth);
     // TODO initializing result_values unnecessary?
@@ -801,8 +798,8 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
 int main() {
     queryGPUProperties();
 
-    const char *imageFilename = "images/windmill_512.jpg";
-    size_t dimension = 512;
+    const char *imageFilename = "images/peacock_feather_4096.jpg";
+    size_t dimension = 100;
 
     std::pair<double, double> gpu_tests_result = testAllPrograms(imageFilename, dimension, true);
     std::cout << "Average real-time processing time (GPU): " << gpu_tests_result.first << " ms" << std::endl;
@@ -810,7 +807,6 @@ int main() {
     std::cout << "Average per-frame processing time (GPU): " << gpu_tests_result.second << " ms" << std::endl;
     std::cout << "Average per-frame frame rate (GPU): " << 1000.0f / gpu_tests_result.second << " fps" << std::endl;
 
-    // TODO Assuming no cache effects
     std::pair<double, double> cpu_tests_result = testAllPrograms(imageFilename, dimension, false);
     std::cout << "Average real-time processing time (CPU): " << cpu_tests_result.first << " ms" << std::endl;
     std::cout << "Average real-time frame rate (CPU): " << 1000.0f / cpu_tests_result.first << " fps" << std::endl;

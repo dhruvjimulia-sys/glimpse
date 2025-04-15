@@ -29,7 +29,6 @@
 
 // From Skywater 130nm PDK
 #define SOURCE_DATA_TECHNOLOGY 130  // 130nm
-// TODO Copy correct values here
 #define AREA_OF_FULL_ADDER_130_NM 20.0192    // in um^2
 #define AREA_OF_MULTIPLEXER_130_NM 11.2608  // in um^2
 
