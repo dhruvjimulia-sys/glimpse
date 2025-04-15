@@ -10,7 +10,6 @@ __device__ __host__ bool getBitAt(uint8_t pixel_value, size_t bit_num) {
 }
 
 __device__ bool getNeighbourValue(
-    size_t neighbour_pc,
     bool* neighbour_shared_values,
     size_t neighbour_index,
     size_t num_shared_neighbours,
@@ -32,7 +31,6 @@ __device__ bool getInstructionInputValue(
     size_t image_size,
     size_t offset,
     bool* neighbour_shared_values,
-    size_t neighbour_update_pc,
     size_t num_shared_neighbours,
     size_t shared_neighbour_value,
     bool use_shared_memory,
@@ -50,7 +48,6 @@ __device__ bool getInstructionInputValue(
             if (y - 1 >= 0) {
                 int64_t up_index = offset - image_x_dim;
                 input_value = getNeighbourValue(
-                    neighbour_update_pc,
                     neighbour_shared_values,
                     up_index,
                     num_shared_neighbours,
@@ -64,7 +61,6 @@ __device__ bool getInstructionInputValue(
             if (y + 1 < image_y_dim) {
                 int64_t down_index = offset + image_x_dim;
                 input_value = getNeighbourValue(
-                    neighbour_update_pc,
                     neighbour_shared_values,
                     down_index,
                     num_shared_neighbours,
@@ -78,7 +74,6 @@ __device__ bool getInstructionInputValue(
             if (x + 1 < image_x_dim) {
                 int64_t right_index = offset + 1;
                 input_value = getNeighbourValue(
-                    neighbour_update_pc,
                     neighbour_shared_values,
                     right_index,
                     num_shared_neighbours,
@@ -92,7 +87,6 @@ __device__ bool getInstructionInputValue(
             if (x - 1 >= 0) {
                 int64_t left_index = offset - 1;
                 input_value = getNeighbourValue(
-                    neighbour_update_pc,
                     neighbour_shared_values,
                     left_index,
                     num_shared_neighbours,
@@ -147,16 +141,11 @@ __global__ void processingElemKernel(
         bool pd_increment = false;
         size_t output_number = 0;
 
-        // updated when we write to neighbour
-        size_t neighbour_update_pc = 0;
-
         // shared_neighbour_value is the index of the shared neighbour value
         bool shared_neighbour_value_increment = false;
         size_t shared_neighbour_value = 0;
 
         bool output_number_increment = false;
-
-        size_t pc = 1;
 
         bool contains_neighbour_sharing = false;
 
@@ -168,7 +157,6 @@ __global__ void processingElemKernel(
                 if (i < num_instructions) {
                     for (size_t j = 0; j < vliw_width; j++) { 
                         const Instruction instruction = ((Instruction *) dev_instructions)[i * vliw_width + j];
-                        pc = i + 1;
                         if (instruction.isNop) {
                             continue;
                         }
@@ -191,7 +179,6 @@ __global__ void processingElemKernel(
                             image_size,
                             offset,
                             neighbour_shared_values,
-                            neighbour_update_pc,
                             num_shared_neighbours,
                             shared_neighbour_value,
                             use_shared_memory,
@@ -210,7 +197,6 @@ __global__ void processingElemKernel(
                             image_size,
                             offset,
                             neighbour_shared_values,
-                            neighbour_update_pc,
                             num_shared_neighbours,
                             shared_neighbour_value,
                             use_shared_memory,
@@ -255,7 +241,6 @@ __global__ void processingElemKernel(
                                 local_memory_values[offset * MEMORY_SIZE_IN_BITS + instruction.result.address] = resultvalue;
                                 break;
                             case ResultKind::Neighbour:
-                                neighbour_update_pc = pc;
                                 neighbour_shared_values[offset * num_shared_neighbours + shared_neighbour_value] = resultvalue;
                                 shared_neighbour_value_increment = true;
                                 contains_neighbour_sharing = true;

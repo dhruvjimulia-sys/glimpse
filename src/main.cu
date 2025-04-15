@@ -459,7 +459,6 @@ void testProgram(std::string programFilename,
     std::vector<std::vector<std::vector<bool>>> expected_image,
     std::vector<float>& real_time_timings,
     std::vector<float>& per_frame_timings,
-    size_t timing_index,
     bool useGPU
 ) {
     uint8_t* image = transform_image(imageFilename, dimension, num_bits);
@@ -500,15 +499,6 @@ void testProgram(std::string programFilename,
 
     size_t program_num_outputs = numOutputs(program);
 
-
-    // cudaEvent_t start, stop;
-    // float elapsedTime;
-
-    // HANDLE_ERROR(cudaEventCreate(&start));
-    // HANDLE_ERROR(cudaEventCreate(&stop));
-
-    // HANDLE_ERROR(cudaEventRecord(start, 0));
-
     bool *processed_image = nullptr;
     if (useGPU) {
         auto normal_start = std::chrono::high_resolution_clock::now();
@@ -516,32 +506,17 @@ void testProgram(std::string programFilename,
         auto normal_stop = std::chrono::high_resolution_clock::now();
         size_t real_time_duration = std::chrono::duration_cast<std::chrono::microseconds>(normal_stop - normal_start).count();
         processed_image = process_image_result.first;
-        per_frame_timings[timing_index] = process_image_result.second;
-        real_time_timings[timing_index] = real_time_duration / 1000.0f;
+        per_frame_timings.push_back(process_image_result.second);
+        real_time_timings.push_back(real_time_duration / 1000.0f);
     } else {
         auto normal_start = std::chrono::high_resolution_clock::now();
         std::pair<bool *, float> process_image_result = process_image_cpu(program, image, dimension, dimension);
         auto normal_stop = std::chrono::high_resolution_clock::now();
         size_t real_time_duration = std::chrono::duration_cast<std::chrono::microseconds>(normal_stop - normal_start).count();
         processed_image = process_image_result.first;
-        per_frame_timings[timing_index] = process_image_result.second;
-        real_time_timings[timing_index] = real_time_duration / 1000.0f;
+        per_frame_timings.push_back(process_image_result.second);
+        real_time_timings.push_back(real_time_duration / 1000.0f);
     }
-
-    // HANDLE_ERROR(cudaEventRecord(stop, 0));
-    // HANDLE_ERROR(cudaEventSynchronize(stop));
-
-    // HANDLE_ERROR(cudaEventElapsedTime(&elapsedTime, start, stop));
-
-    // std::cout << "Processing time: " << elapsedTime << " ms" << std::endl;
-    // std::cout << "Frame rate: " << 1000.0f / elapsedTime << " fps" << std::endl;
-
-    
-    // std::cout << "Processing time: " << duration / 1000.0f << " ms" << std::endl;
-    // std::cout << "Frame rate: " << 1000000.0f / duration << " fps" << std::endl;
-
-    // HANDLE_ERROR(cudaEventDestroy(start));
-    // HANDLE_ERROR(cudaEventDestroy(stop));
 
     bool test_passed = true;
     for (size_t y = 0; y < dimension; y++) {
@@ -572,7 +547,7 @@ void testProgram(std::string programFilename,
 
     if (test_passed) {
         // Logging when tests pass
-        std::cout << programFilename << " test passed with frame rate " << 1000.0f / per_frame_timings[timing_index] << " fps" << std::endl;
+        std::cout << programFilename << " test passed with frame rate " << 1000.0f / per_frame_timings[per_frame_timings.size() - 1] << " fps" << std::endl;
     } else {
         std::cout << programFilename << " test failed" << std::endl;
     }
@@ -731,10 +706,8 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
     size_t min_vliw_width = 1;
     size_t max_vliw_width = 4;
     // Note: Need to change this if we need to add more tests
-    size_t NUM_TESTS = 5;
-    size_t num_total_tests = NUM_TESTS * (max_vliw_width - min_vliw_width + 1);
-    std::vector<float> real_time_timings(num_total_tests);
-    std::vector<float> per_frame_timings(num_total_tests);
+    std::vector<float> real_time_timings;
+    std::vector<float> per_frame_timings;
     for (size_t vliwWidth = min_vliw_width; vliwWidth <= max_vliw_width; vliwWidth++) {
         // Note: only make pipelining tests for vliwWidth == 1
         for (size_t pipelining = 0; (pipelining <= 1 && vliwWidth == 1) || pipelining == 0; pipelining++) {
@@ -751,7 +724,6 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
                 getExpectedImageForOneBitEdgeDetection(imageFilename, 1, dimension, 1),
                 real_time_timings,
                 per_frame_timings,
-                (vliwWidth - min_vliw_width) * NUM_TESTS + 0,
                 useGPU
             );
 
@@ -766,7 +738,6 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
                 getExpectedImageForOneBitThinning(imageFilename, 1, dimension, 1),
                 real_time_timings,
                 per_frame_timings,
-                (vliwWidth - min_vliw_width) * NUM_TESTS + 1,
                 useGPU
             );
 
@@ -781,7 +752,6 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
                 getExpectedImageForOneBitSmoothing(imageFilename, 1, dimension, 1),
                 real_time_timings,
                 per_frame_timings,
-                (vliwWidth - min_vliw_width) * NUM_TESTS + 2,
                 useGPU
             );
 
@@ -796,7 +766,6 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
                 getExpectedImageForPrewittEdgeDetection(imageFilename, 6, dimension, 9),
                 real_time_timings,
                 per_frame_timings,
-                (vliwWidth - min_vliw_width) * NUM_TESTS + 3,
                 useGPU
             );
 
@@ -811,7 +780,6 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
                 getExpectedImageForMultiBitSmoothing(imageFilename, 6, dimension, 6),
                 real_time_timings,
                 per_frame_timings,
-                (vliwWidth - min_vliw_width) * NUM_TESTS + 4,
                 useGPU
             );
         }
@@ -822,6 +790,7 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
     // Compute average processing time and average frame rate
     double total_real_time_duration = 0;
     double total_per_frame_duration = 0;
+    size_t num_total_tests = real_time_timings.size();
     for (size_t i = 0; i < num_total_tests; i++) {
         total_real_time_duration += (double) real_time_timings[i];
         total_per_frame_duration += (double) per_frame_timings[i];
