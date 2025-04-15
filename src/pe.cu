@@ -1,7 +1,4 @@
 #include "pe.h"
-// ceil(image_size / (blockDim.x * gridDim.x * blockDim.y * gridDim.y))
-// = ceil(image_size / (NUM_THREADS_PER_BLOCK_PER_DIM * NUM_THREADS_PER_BLOCK_PER_DIM * MAX_BLOCK_SIZE * MAX_BLOCK_SIZE))
-#define MAX_NUM_PIXELS_PER_THREAD 1821
  
 __device__ __host__ bool getBitAt(uint8_t pixel_value, size_t bit_num) {
     if (bit_num >= 8) {
@@ -42,8 +39,7 @@ __device__ bool getInstructionInputValue(
     size_t num_shared_neighbours,
     size_t shared_neighbour_value,
     bool use_shared_memory,
-    bool* neighbour_shared_values_cache,
-    size_t num_pixel
+    bool* neighbour_shared_values_cache
 ) {
     bool input_value = false;
     switch (inputc.input.inputKind) {
@@ -176,7 +172,7 @@ __global__ void processingElemKernel(
             size_t offset = x + y * blockDim.x * gridDim.x;
             size_t image_x = offset % image_x_dim;
             size_t image_y = offset / image_x_dim;
-            for (size_t num_pixel = 0; num_pixel < MAX_NUM_PIXELS_PER_THREAD && offset < image_size; num_pixel++) {
+            while (offset < image_size) {
                 if (i < num_instructions) {
                     for (size_t j = 0; j < vliw_width; j++) { 
                         const Instruction instruction = ((Instruction *) dev_instructions)[i * vliw_width + j];
@@ -208,8 +204,7 @@ __global__ void processingElemKernel(
                             num_shared_neighbours,
                             shared_neighbour_value,
                             use_shared_memory,
-                            (bool *) neighbour_shared_values_cache,
-                            num_pixel
+                            (bool *) neighbour_shared_values_cache
                         );
                         bool input_two = getInstructionInputValue(
                             instruction.input2,
@@ -229,8 +224,7 @@ __global__ void processingElemKernel(
                             num_shared_neighbours,
                             shared_neighbour_value,
                             use_shared_memory,
-                            (bool *) neighbour_shared_values_cache,
-                            num_pixel
+                            (bool *) neighbour_shared_values_cache
                         );
 
                         // printf("offset: %lu, instruction: %lu, input_one: %d, carryval: %d, input_two: %d\n", offset, i, input_one, carryval, input_two);

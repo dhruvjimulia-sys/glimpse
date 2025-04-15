@@ -160,12 +160,18 @@ std::pair<bool *, float> process_image_gpu(Program program, uint8_t* pixels, siz
         
     HANDLE_ERROR(cudaEventRecord(start, 0));
 
-    // TODO compute actual MAX_BLOCK_SIZE
-    constexpr size_t MAX_BLOCK_SIZE = 6;
+    int numBlocksPerSm = 0;
+    cudaDeviceProp deviceProp;
+    // ASSUME device = 0 is our device
+    size_t device = 0;
+    cudaGetDeviceProperties(&deviceProp, device);
+    size_t numThreads = NUM_THREADS_PER_BLOCK_PER_DIM * NUM_THREADS_PER_BLOCK_PER_DIM;
+    cudaOccupancyMaxActiveBlocksPerMultiprocessor(&numBlocksPerSm, processingElemKernel, numThreads, device);
+    size_t MAX_BLOCK_SIZE = numBlocksPerSm * deviceProp.multiProcessorCount;
 
     dim3 blocks(
-        std::min((image_x_dim + NUM_THREADS_PER_BLOCK_PER_DIM - 1) / NUM_THREADS_PER_BLOCK_PER_DIM, MAX_BLOCK_SIZE),
-        std::min((image_y_dim + NUM_THREADS_PER_BLOCK_PER_DIM - 1) / NUM_THREADS_PER_BLOCK_PER_DIM, MAX_BLOCK_SIZE)
+        std::min(((image_x_dim + NUM_THREADS_PER_BLOCK_PER_DIM - 1) / NUM_THREADS_PER_BLOCK_PER_DIM) * ((image_y_dim + NUM_THREADS_PER_BLOCK_PER_DIM - 1) / NUM_THREADS_PER_BLOCK_PER_DIM), MAX_BLOCK_SIZE),
+        1
     );
     dim3 threads(NUM_THREADS_PER_BLOCK_PER_DIM, NUM_THREADS_PER_BLOCK_PER_DIM);
 

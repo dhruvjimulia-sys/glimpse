@@ -1,1 +1,7 @@
 build/
+
+*.output
+*.cfg.tmp.out
+*.cfg.out
+*.cfg.tmp
+*.log
