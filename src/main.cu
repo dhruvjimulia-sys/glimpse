@@ -117,17 +117,6 @@ std::pair<bool *, float> process_image_gpu(Program program, uint8_t* pixels, siz
     HANDLE_ERROR(cudaMalloc((void **) &dev_neighbour_shared_values, neighbour_shared_mem_size));
     HANDLE_ERROR(cudaMemset(dev_neighbour_shared_values, 0, neighbour_shared_mem_size));
 
-    // program counter when neighbour written
-    cuda::atomic<int, cuda::thread_scope_device>* dev_neighbour_program_counter;
-    size_t neighbour_program_counter_mem_size = sizeof(cuda::atomic<int, cuda::thread_scope_device>) * image_size;
-    HANDLE_ERROR(cudaMalloc((void **) &dev_neighbour_program_counter, neighbour_program_counter_mem_size));
-    cuda::atomic<int, cuda::thread_scope_device> *initial_neighbour_program_counter = (cuda::atomic<int, cuda::thread_scope_device> *) malloc(neighbour_program_counter_mem_size);
-    for (size_t i = 0; i < image_size; i++) {
-        initial_neighbour_program_counter[i] = 0;
-    }
-    HANDLE_ERROR(cudaMemcpy(dev_neighbour_program_counter, initial_neighbour_program_counter, neighbour_program_counter_mem_size, cudaMemcpyHostToDevice));
-    free(initial_neighbour_program_counter);
-
     // external values
     bool* dev_external_values;
     size_t external_values_mem_size = sizeof(bool) * image_size * program_num_outputs;
@@ -179,7 +168,6 @@ std::pair<bool *, float> process_image_gpu(Program program, uint8_t* pixels, siz
         (void *) &program.instructionCount,
         (void *) &dev_image,
         (void *) &dev_neighbour_shared_values,
-        (void *) &dev_neighbour_program_counter,
         (void *) &dev_external_values,
         (void *) &image_size,
         (void *) &image_x_dim,
@@ -227,7 +215,6 @@ std::pair<bool *, float> process_image_gpu(Program program, uint8_t* pixels, siz
     // HANDLE_ERROR(cudaFree(dev_instructions));
     HANDLE_ERROR(cudaFree(dev_image));
     HANDLE_ERROR(cudaFree(dev_neighbour_shared_values));
-    HANDLE_ERROR(cudaFree(dev_neighbour_program_counter));
     HANDLE_ERROR(cudaFree(dev_external_values));
     HANDLE_ERROR(cudaFree(dev_local_memory_values));
     HANDLE_ERROR(cudaFree(dev_carry_register_values));
@@ -849,15 +836,15 @@ int main() {
     size_t dimension = 512;
 
     std::pair<double, double> gpu_tests_result = testAllPrograms(imageFilename, dimension, true);
-    // std::cout << "Average real-time processing time (GPU): " << gpu_tests_result.first << " ms" << std::endl;
-    // std::cout << "Average real-time frame rate (GPU): " << 1000.0f / gpu_tests_result.first << " fps" << std::endl;
+    std::cout << "Average real-time processing time (GPU): " << gpu_tests_result.first << " ms" << std::endl;
+    std::cout << "Average real-time frame rate (GPU): " << 1000.0f / gpu_tests_result.first << " fps" << std::endl;
     std::cout << "Average per-frame processing time (GPU): " << gpu_tests_result.second << " ms" << std::endl;
     std::cout << "Average per-frame frame rate (GPU): " << 1000.0f / gpu_tests_result.second << " fps" << std::endl;
 
     // TODO Assuming no cache effects
     std::pair<double, double> cpu_tests_result = testAllPrograms(imageFilename, dimension, false);
-    // std::cout << "Average processing time (CPU): " << cpu_tests_result.first << " ms" << std::endl;
-    // std::cout << "Average frame rate (CPU): " << 1000.0f / cpu_tests_result.first << " fps" << std::endl;
+    std::cout << "Average real-time processing time (CPU): " << cpu_tests_result.first << " ms" << std::endl;
+    std::cout << "Average real-time frame rate (CPU): " << 1000.0f / cpu_tests_result.first << " fps" << std::endl;
     std::cout << "Average per-frame processing time (CPU): " << cpu_tests_result.second << " ms" << std::endl;
     std::cout << "Average per-frame frame rate (CPU): " << 1000.0f / cpu_tests_result.second << " fps" << std::endl;
 

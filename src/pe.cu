@@ -10,14 +10,12 @@ __device__ __host__ bool getBitAt(uint8_t pixel_value, size_t bit_num) {
 }
 
 __device__ bool getNeighbourValue(
-    cuda::atomic<int, cuda::thread_scope_device>* neighbour_program_counter,
     size_t neighbour_pc,
     bool* neighbour_shared_values,
     size_t neighbour_index,
     size_t num_shared_neighbours,
     size_t shared_neighbour_value
 ) {
-    // while (neighbour_program_counter[neighbour_index].load(cuda::std::memory_order_acquire) < neighbour_pc);
     return neighbour_shared_values[neighbour_index * num_shared_neighbours + shared_neighbour_value - 1];
 }
 
@@ -33,7 +31,6 @@ __device__ bool getInstructionInputValue(
     size_t image_y_dim,
     size_t image_size,
     size_t offset,
-    cuda::atomic<int, cuda::thread_scope_device>* neighbour_program_counter,
     bool* neighbour_shared_values,
     size_t neighbour_update_pc,
     size_t num_shared_neighbours,
@@ -53,7 +50,6 @@ __device__ bool getInstructionInputValue(
             if (y - 1 >= 0) {
                 int64_t up_index = offset - image_x_dim;
                 input_value = getNeighbourValue(
-                    neighbour_program_counter,
                     neighbour_update_pc,
                     neighbour_shared_values,
                     up_index,
@@ -68,7 +64,6 @@ __device__ bool getInstructionInputValue(
             if (y + 1 < image_y_dim) {
                 int64_t down_index = offset + image_x_dim;
                 input_value = getNeighbourValue(
-                    neighbour_program_counter,
                     neighbour_update_pc,
                     neighbour_shared_values,
                     down_index,
@@ -83,7 +78,6 @@ __device__ bool getInstructionInputValue(
             if (x + 1 < image_x_dim) {
                 int64_t right_index = offset + 1;
                 input_value = getNeighbourValue(
-                    neighbour_program_counter,
                     neighbour_update_pc,
                     neighbour_shared_values,
                     right_index,
@@ -98,7 +92,6 @@ __device__ bool getInstructionInputValue(
             if (x - 1 >= 0) {
                 int64_t left_index = offset - 1;
                 input_value = getNeighbourValue(
-                    neighbour_program_counter,
                     neighbour_update_pc,
                     neighbour_shared_values,
                     left_index,
@@ -119,7 +112,6 @@ __global__ void processingElemKernel(
     size_t num_instructions,
     uint8_t* image,
     bool* neighbour_shared_values,
-    cuda::atomic<int, cuda::thread_scope_device>* neighbour_program_counter,
     bool* external_values,
     size_t image_size,
     size_t image_x_dim,
@@ -198,7 +190,6 @@ __global__ void processingElemKernel(
                             image_y_dim,
                             image_size,
                             offset,
-                            neighbour_program_counter,
                             neighbour_shared_values,
                             neighbour_update_pc,
                             num_shared_neighbours,
@@ -218,7 +209,6 @@ __global__ void processingElemKernel(
                             image_y_dim,
                             image_size,
                             offset,
-                            neighbour_program_counter,
                             neighbour_shared_values,
                             neighbour_update_pc,
                             num_shared_neighbours,
@@ -268,7 +258,6 @@ __global__ void processingElemKernel(
                                 neighbour_update_pc = pc;
                                 neighbour_shared_values[offset * num_shared_neighbours + shared_neighbour_value] = resultvalue;
                                 shared_neighbour_value_increment = true;
-                                // neighbour_program_counter[offset].store(pc, cuda::std::memory_order_release);
                                 contains_neighbour_sharing = true;
                                 break;
                             case ResultKind::External:
