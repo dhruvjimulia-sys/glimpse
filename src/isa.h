@@ -3,6 +3,8 @@
 #include <string>
 #include <vector>
 #include <cctype>
+// Note: MEMORY_SIZE_IN_BITS
+#define MEMORY_SIZE_IN_BITS 24
 
 enum class InputKind { Address, PD, Up, Down, Right, Left, ZeroValue };
 

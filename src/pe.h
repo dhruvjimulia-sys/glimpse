@@ -12,8 +12,6 @@ namespace cg = cooperative_groups;
 // Note: MAX_NUM_INSTRUCTIONS set here (program.instructionCount *
 // program.vliwWidth must be less than or equal to this value)
 #define MAX_NUM_INSTRUCTIONS 500
-// Note: MEMORY_SIZE_IN_BITS
-#define MEMORY_SIZE_IN_BITS 24
 extern __constant__ char
     dev_instructions[sizeof(Instruction) * MAX_NUM_INSTRUCTIONS];
 

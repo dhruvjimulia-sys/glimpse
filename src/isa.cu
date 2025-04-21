@@ -150,6 +150,9 @@ Result Parser::parseResult() {
     } else if (match("[")) {
         result.resultKind = ResultKind::Address;
         result.address = std::stoi(parseNumber());
+        if (result.address >= MEMORY_SIZE_IN_BITS) {
+            throw std::runtime_error("Address out of bounds at position " + std::to_string(pos));
+        }
         expect(']');
     } else {
         throw std::runtime_error("Invalid result at position " + std::to_string(pos));
