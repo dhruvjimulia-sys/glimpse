@@ -1,4 +1,5 @@
 #include "program_utils.h"
+#include <unordered_set>
 #include "../isa.h"
 
 size_t numOutputs(Program program) {
@@ -75,4 +76,36 @@ size_t numRegisterReadAccesses(Program program) {
 size_t numRegisterWriteAccesses(Program program) {
     // number of writes to internal registers turns out to be the same as number of reads
     return numRegisterReadAccesses(program);
+}
+
+double utilization(Program program) {
+    double num_nops = 0;
+    for (int i = 0; i < program.instructionCount * program.vliwWidth; i++) {
+        if (program.instructions[i].isNop) {
+            num_nops++;
+        }
+    }
+    double num_instructions = program.instructionCount * program.vliwWidth;
+    double num_active_instructions = num_instructions - num_nops;
+    double utilization = num_active_instructions / num_instructions;
+    return utilization;
+}
+
+size_t memoryUsage(Program program) {
+    std::unordered_set<int> memory_addresses;
+    for (int i = 0; i < program.instructionCount * program.vliwWidth; i++) {
+        if (!program.instructions[i].isNop) {
+            if (program.instructions[i].input1.input.inputKind == InputKind::Address) {
+                memory_addresses.insert(program.instructions[i].input1.input.address);
+            }
+            if (program.instructions[i].input2.input.inputKind == InputKind::Address) {
+                memory_addresses.insert(program.instructions[i].input2.input.address);
+            }
+            if (program.instructions[i].result.resultKind == ResultKind::Address) {
+                memory_addresses.insert(program.instructions[i].result.address);
+            }
+        }
+    }
+    size_t memory_usage = memory_addresses.size();
+    return memory_usage;
 }

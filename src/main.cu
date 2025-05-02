@@ -544,23 +544,34 @@ void testProgram(std::string programFilename,
     }
 
     // Print power and area
-    // double computeArea = getComputeArea(program.vliwWidth) * dimension * dimension;
-    // double memoryArea = getMemoryArea(program.vliwWidth, program.isPipelining) * dimension * dimension;
-    // double computeDynPower = getComputeDynamicPower(program) * dimension * dimension;
-    // double memoryDynPower = getMemoryDynamicPower(program) * dimension * dimension;
-    // double computeSubThreshLeakage = getComputeSubthresholdLeakage(program.vliwWidth) * dimension * dimension;
-    // double memorySubThreshLeakage = getMemorySubthresholdLeakage(program.vliwWidth, program.isPipelining) * dimension * dimension;
-    // double computeGateLeakage = getComputeGateLeakage(program.vliwWidth) * dimension * dimension;
-    // double memoryGateLeakage = getMemoryGateLeakage(program.vliwWidth, program.isPipelining) * dimension * dimension;
+    double computeArea = getComputeArea(program.vliwWidth) * dimension * dimension;
+    double memoryArea = getMemoryArea(program.vliwWidth, program.isPipelining) * dimension * dimension;
+    double computeDynPower = getComputeDynamicPower(program) * dimension * dimension;
+    double memoryDynPower = getMemoryDynamicPower(program) * dimension * dimension;
+    double computeSubThreshLeakage = getComputeSubthresholdLeakage(program.vliwWidth) * dimension * dimension;
+    double memorySubThreshLeakage = getMemorySubthresholdLeakage(program.vliwWidth, program.isPipelining) * dimension * dimension;
+    double computeGateLeakage = getComputeGateLeakage(program.vliwWidth) * dimension * dimension;
+    double memoryGateLeakage = getMemoryGateLeakage(program.vliwWidth, program.isPipelining) * dimension * dimension;
 
     // std::cout << "Compute Area: " << computeArea << " um^2" << std::endl;
     // std::cout << "Memory Area: " << memoryArea << " um^2" << std::endl;
+    std::cout << std::fixed << "Area (um^2): " << computeArea + memoryArea << std::endl;
     // std::cout << "Compute Dynamic Power: " << computeDynPower << " W" << std::endl;
     // std::cout << "Memory Dynamic Power: " << memoryDynPower << " W" << std::endl;
     // std::cout << "Compute Subthreshold Leakage: " << computeSubThreshLeakage << " W" << std::endl;
     // std::cout << "Memory Subthreshold Leakage: " << memorySubThreshLeakage << " W" << std::endl;
     // std::cout << "Compute Gate Leakage: " << computeGateLeakage << " W" << std::endl;
     // std::cout << "Memory Gate Leakage: " << memoryGateLeakage << " W" << std::endl;
+    std::cout << std::fixed << "Power (W): " << computeDynPower + memoryDynPower + computeSubThreshLeakage + memorySubThreshLeakage + computeGateLeakage + memoryGateLeakage << std::endl;
+
+    std::cout << std::fixed << "Instruction Count: " << program.instructionCount << std::endl;
+    // Note: PIPELINE_WIDTH - another duplicate
+    const size_t PIPELINE_WIDTH = 3;
+    std::cout << std::fixed << "Performance (us): " << (!program.isPipelining ?
+    program.instructionCount * (1 / (CLOCK_FREQUENCY / 4)) * MICROSECONDS_PER_SECOND :
+    (program.instructionCount + PIPELINE_WIDTH - 1) * (1 / CLOCK_FREQUENCY) * MICROSECONDS_PER_SECOND) << std::endl;
+    std::cout << std::fixed << "Utilization: " << utilization(program) << std::endl;
+    std::cout << std::fixed << "Memory Usage: " << memoryUsage(program) << " bits" << std::endl;
 
     free(image);
     free(processed_image);
@@ -793,7 +804,7 @@ int main() {
     queryGPUProperties();
 
     const char *imageFilename = "images/peacock_feather_4096.jpg";
-    size_t dimension = 512;
+    size_t dimension = 128;
 
     std::pair<double, double> gpu_tests_result = testAllPrograms(imageFilename, dimension, true);
     std::cout << "Average real-time processing time (GPU): " << gpu_tests_result.first << " ms" << std::endl;

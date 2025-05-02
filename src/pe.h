@@ -16,8 +16,8 @@ extern __constant__ char
     dev_instructions[sizeof(Instruction) * MAX_NUM_INSTRUCTIONS];
 
 // Maximum of value below is 32
-// TODO Can finetune
-#define NUM_THREADS_PER_BLOCK_PER_DIM 16
+// Finetuned to max possible
+#define NUM_THREADS_PER_BLOCK_PER_DIM 25
 
 __device__ __host__ bool getBitAt(uint8_t pixel_value, size_t bit_num);
 

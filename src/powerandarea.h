@@ -2,7 +2,10 @@
 #include <cctype>
 #include <cstddef>
 #include <cstdint>
+
 #include "isa.h"
+
+#define MICROSECONDS_PER_SECOND 1000000
 
 // Memory area and power functions
 // Access time (ns): 0.435422
