@@ -806,6 +806,7 @@ int main() {
 
     const char *imageFilename = "images/peacock_feather_4096.jpg";
     for (size_t dimension = 100; dimension <= 2000; dimension += 100) {
+        std::cout << dimension << ", ";
         std::pair<double, double> cpu_tests_result = testAllPrograms(imageFilename, dimension, false);
         // std::cout << "Average real-time processing time (CPU): " << cpu_tests_result.first << " ms" << std::endl;
         // std::cout << "Average real-time frame rate (CPU): " << 1000.0f / cpu_tests_result.first << " fps" << std::endl;
