@@ -538,40 +538,40 @@ void testProgram(std::string programFilename,
 
     if (test_passed) {
         // Logging when tests pass
-        std::cout << programFilename << " test passed with frame rate " << 1000.0f / per_frame_timings[per_frame_timings.size() - 1] << " fps" << std::endl;
+        // std::cout << programFilename << " test passed with frame rate " << 1000.0f / per_frame_timings[per_frame_timings.size() - 1] << " fps" << std::endl;
     } else {
         std::cout << programFilename << " test failed" << std::endl;
     }
 
     // Print power and area
-    double computeArea = getComputeArea(program.vliwWidth) * dimension * dimension;
-    double memoryArea = getMemoryArea(program.vliwWidth, program.isPipelining) * dimension * dimension;
-    double computeDynPower = getComputeDynamicPower(program) * dimension * dimension;
-    double memoryDynPower = getMemoryDynamicPower(program) * dimension * dimension;
-    double computeSubThreshLeakage = getComputeSubthresholdLeakage(program.vliwWidth) * dimension * dimension;
-    double memorySubThreshLeakage = getMemorySubthresholdLeakage(program.vliwWidth, program.isPipelining) * dimension * dimension;
-    double computeGateLeakage = getComputeGateLeakage(program.vliwWidth) * dimension * dimension;
-    double memoryGateLeakage = getMemoryGateLeakage(program.vliwWidth, program.isPipelining) * dimension * dimension;
+    // double computeArea = getComputeArea(program.vliwWidth) * dimension * dimension;
+    // double memoryArea = getMemoryArea(program.vliwWidth, program.isPipelining) * dimension * dimension;
+    // double computeDynPower = getComputeDynamicPower(program) * dimension * dimension;
+    // double memoryDynPower = getMemoryDynamicPower(program) * dimension * dimension;
+    // double computeSubThreshLeakage = getComputeSubthresholdLeakage(program.vliwWidth) * dimension * dimension;
+    // double memorySubThreshLeakage = getMemorySubthresholdLeakage(program.vliwWidth, program.isPipelining) * dimension * dimension;
+    // double computeGateLeakage = getComputeGateLeakage(program.vliwWidth) * dimension * dimension;
+    // double memoryGateLeakage = getMemoryGateLeakage(program.vliwWidth, program.isPipelining) * dimension * dimension;
 
     // std::cout << "Compute Area: " << computeArea << " um^2" << std::endl;
     // std::cout << "Memory Area: " << memoryArea << " um^2" << std::endl;
-    std::cout << std::fixed << "Area (um^2): " << computeArea + memoryArea << std::endl;
+    // std::cout << std::fixed << "Area (um^2): " << computeArea + memoryArea << std::endl;
     // std::cout << "Compute Dynamic Power: " << computeDynPower << " W" << std::endl;
     // std::cout << "Memory Dynamic Power: " << memoryDynPower << " W" << std::endl;
     // std::cout << "Compute Subthreshold Leakage: " << computeSubThreshLeakage << " W" << std::endl;
     // std::cout << "Memory Subthreshold Leakage: " << memorySubThreshLeakage << " W" << std::endl;
     // std::cout << "Compute Gate Leakage: " << computeGateLeakage << " W" << std::endl;
     // std::cout << "Memory Gate Leakage: " << memoryGateLeakage << " W" << std::endl;
-    std::cout << std::fixed << "Power (W): " << computeDynPower + memoryDynPower + computeSubThreshLeakage + memorySubThreshLeakage + computeGateLeakage + memoryGateLeakage << std::endl;
+    // std::cout << std::fixed << "Power (W): " << computeDynPower + memoryDynPower + computeSubThreshLeakage + memorySubThreshLeakage + computeGateLeakage + memoryGateLeakage << std::endl;
 
-    std::cout << std::fixed << "Instruction Count: " << program.instructionCount << std::endl;
+    // std::cout << std::fixed << "Instruction Count: " << program.instructionCount << std::endl;
     // Note: PIPELINE_WIDTH - another duplicate
-    const size_t PIPELINE_WIDTH = 3;
-    std::cout << std::fixed << "Performance (us): " << (!program.isPipelining ?
-    program.instructionCount * (1 / (CLOCK_FREQUENCY / 4)) * MICROSECONDS_PER_SECOND :
-    (program.instructionCount + PIPELINE_WIDTH - 1) * (1 / CLOCK_FREQUENCY) * MICROSECONDS_PER_SECOND) << std::endl;
-    std::cout << std::fixed << "Utilization: " << utilization(program) << std::endl;
-    std::cout << std::fixed << "Memory Usage: " << memoryUsage(program) << " bits" << std::endl;
+    // const size_t PIPELINE_WIDTH = 3;
+    // std::cout << std::fixed << "Performance (us): " << (!program.isPipelining ?
+    // program.instructionCount * (1 / (CLOCK_FREQUENCY / 4)) * MICROSECONDS_PER_SECOND :
+    // (program.instructionCount + PIPELINE_WIDTH - 1) * (1 / CLOCK_FREQUENCY) * MICROSECONDS_PER_SECOND) << std::endl;
+    // std::cout << std::fixed << "Utilization: " << utilization(program) << std::endl;
+    // std::cout << std::fixed << "Memory Usage: " << memoryUsage(program) << " bits" << std::endl;
 
     free(image);
     free(processed_image);
@@ -706,13 +706,14 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
     // }
 
     size_t min_vliw_width = 1;
-    size_t max_vliw_width = 4;
+    size_t max_vliw_width = 1;
+    bool do_pipelining = false;
     // Note: Need to change this if we need to add more tests
     std::vector<float> real_time_timings;
     std::vector<float> per_frame_timings;
     for (size_t vliwWidth = min_vliw_width; vliwWidth <= max_vliw_width; vliwWidth++) {
         // Note: only make pipelining tests for vliwWidth == 1
-        for (size_t pipelining = 0; (pipelining <= 1 && vliwWidth == 1) || pipelining == 0; pipelining++) {
+        for (size_t pipelining = 0; (pipelining <= do_pipelining && vliwWidth == 1) || pipelining == 0; pipelining++) {
             std::string directory_name = pipelining == 0 ? std::to_string(vliwWidth) + "_vliw_slot/" : "pipelining/";
             bool is_pipelining = pipelining == 1;
             testProgram(
@@ -804,19 +805,21 @@ int main() {
     queryGPUProperties();
 
     const char *imageFilename = "images/peacock_feather_4096.jpg";
-    size_t dimension = 128;
+    for (size_t dimension = 100; dimension <= 2000; dimension += 100) {
+        std::pair<double, double> cpu_tests_result = testAllPrograms(imageFilename, dimension, false);
+        // std::cout << "Average real-time processing time (CPU): " << cpu_tests_result.first << " ms" << std::endl;
+        // std::cout << "Average real-time frame rate (CPU): " << 1000.0f / cpu_tests_result.first << " fps" << std::endl;
+        // std::cout << "Average per-frame processing time (CPU): " << cpu_tests_result.second << " ms" << std::endl;
+        // std::cout << "Average per-frame frame rate (CPU): " << 1000.0f / cpu_tests_result.second << " fps" << std::endl;
+        std::cout << 1000.0f / cpu_tests_result.second << std::endl;
 
-    std::pair<double, double> gpu_tests_result = testAllPrograms(imageFilename, dimension, true);
-    std::cout << "Average real-time processing time (GPU): " << gpu_tests_result.first << " ms" << std::endl;
-    std::cout << "Average real-time frame rate (GPU): " << 1000.0f / gpu_tests_result.first << " fps" << std::endl;
-    std::cout << "Average per-frame processing time (GPU): " << gpu_tests_result.second << " ms" << std::endl;
-    std::cout << "Average per-frame frame rate (GPU): " << 1000.0f / gpu_tests_result.second << " fps" << std::endl;
-
-    std::pair<double, double> cpu_tests_result = testAllPrograms(imageFilename, dimension, false);
-    std::cout << "Average real-time processing time (CPU): " << cpu_tests_result.first << " ms" << std::endl;
-    std::cout << "Average real-time frame rate (CPU): " << 1000.0f / cpu_tests_result.first << " fps" << std::endl;
-    std::cout << "Average per-frame processing time (CPU): " << cpu_tests_result.second << " ms" << std::endl;
-    std::cout << "Average per-frame frame rate (CPU): " << 1000.0f / cpu_tests_result.second << " fps" << std::endl;
+        std::pair<double, double> gpu_tests_result = testAllPrograms(imageFilename, dimension, true);
+        // std::cout << "Average real-time processing time (GPU): " << gpu_tests_result.first << " ms" << std::endl;
+        // std::cout << "Average real-time frame rate (GPU): " << 1000.0f / gpu_tests_result.first << " fps" << std::endl;
+        // std::cout << "Average per-frame processing time (GPU): " << gpu_tests_result.second << " ms" << std::endl;
+        // std::cout << "Average per-frame frame rate (GPU): " << 1000.0f / gpu_tests_result.second << " fps" << std::endl;
+        std::cout << 1000.0f / gpu_tests_result.second << ", ";
+    }
 
     return EXIT_SUCCESS;
 }
