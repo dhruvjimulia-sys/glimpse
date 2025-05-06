@@ -17,7 +17,7 @@ extern __constant__ char
 
 // Maximum of value below is 32
 // Finetuned to max possible
-#define NUM_THREADS_PER_BLOCK_PER_DIM 25
+#define NUM_THREADS_PER_BLOCK_PER_DIM 20
 
 __device__ __host__ bool getBitAt(uint8_t pixel_value, size_t bit_num);
 

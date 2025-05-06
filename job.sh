@@ -1,11 +1,12 @@
 #!/bin/bash
-#PBS -lwalltime=00:00:30
+#PBS -lwalltime=00:10:00
 #PBS -l select=1:ncpus=1:mem=2gb:ngpus=1
 #PBS -N vis-chip-sim
 
 cd ${PBS_O_WORKDIR}
 
 # nvidia-smi
+lscpu
 
 module purge
 module load tools/prod

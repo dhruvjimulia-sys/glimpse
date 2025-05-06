@@ -12,6 +12,7 @@
 #define NANO_ORDER_OF_MAGNITUDE 1e9
 #define MILLI_TO_MICRO_ORDER_OF_MAGNITUDE 1e3
 #define MICRO_TO_NANO_ORDER_OF_MAGNITUDE 1e3
+#define BITS_IN_BYTE 8
 
 // From latest SRVC paper
 // ASSUME neighbour-to-neighbour communication bottleneck + more assumptions
@@ -1026,6 +1027,7 @@ CACTIResult getCACTIResult(std::string filename, size_t vliwWidth, bool isPipeli
     replaceAllInstancesOf(fileContent, "${TEMPERATURE}", std::to_string(TEMPERATURE));
     replaceAllInstancesOf(fileContent, "${TECHNOLOGY}", std::to_string(((double) TARGET_TECHNOLOGY) / MICRO_TO_NANO_ORDER_OF_MAGNITUDE));
     replaceAllInstancesOf(fileContent, "${TECHTYPE}", getTechnologyName(TECH_TYPE));
+    replaceAllInstancesOf(fileContent, "${MEMORY_SIZE}", std::to_string((MEMORY_SIZE_IN_BITS * MEMORY_MULTIPLIER) / BITS_IN_BYTE));
 
     // Write modified input to a temporary file
     std::string tempFilename = filename + ".tmp";
