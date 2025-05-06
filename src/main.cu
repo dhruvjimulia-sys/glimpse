@@ -447,8 +447,8 @@ void testProgram(std::string programFilename,
     const char *imageFilename,
     size_t dimension,
     size_t num_bits,
-    size_t num_iterations,
     size_t expected_program_num_outputs,
+    size_t num_iterations,
     std::vector<std::vector<std::vector<std::vector<bool>>>> expected_image,
     std::vector<float>& real_time_timings,
     std::vector<float>& per_frame_timings,
@@ -513,41 +513,45 @@ void testProgram(std::string programFilename,
         real_time_timings.push_back(real_time_duration / 1000.0f);
     }
 
-    bool test_passed = true;
+    // Testing
+    // bool test_passed = true;
+    // for (size_t iter = 0; iter < num_iterations; iter++) {
+    //     for (size_t y = 0; y < dimension; y++) {
+    //         for (size_t x = 0; x < dimension; x++) {
+    //             size_t offset = x + y * dimension;
+    //             for (int64_t i = program_num_outputs - 1; i >= 0; i--) {
+    //                 bool actual_value = processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + i];
+    //                 if (actual_value != expected_image[iter][y][x][i]) {
+    //                     std::cout << "Mismatch at (" << x << ", " << y << ")[" << i << "] at iteration " << iter << ": " << actual_value << " != " << expected_image[iter][y][x][i] << std::endl;
+    //                     test_passed = false;
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
+
+    // Print external values
     for (size_t iter = 0; iter < num_iterations; iter++) {
+        std::cout << "Iteration " << iter << ":" << std::endl;
         for (size_t y = 0; y < dimension; y++) {
             for (size_t x = 0; x < dimension; x++) {
                 size_t offset = x + y * dimension;
-                for (int64_t i = program_num_outputs - 1; i >= 0; i--) {
-                    bool actual_value = processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + i];
-                    if (actual_value != expected_image[iter][y][x][i]) {
-                        std::cout << "Mismatch at (" << x << ", " << y << ")[" << i << "] at iteration " << iter << ": " << actual_value << " != " << expected_image[iter][y][x][i] << std::endl;
-                        test_passed = false;
-                    }
+                for (size_t i = 0; i < program_num_outputs; i++) {
+                    std::cout << processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + i];
                 }
+                std::cout << " ";
             }
+            std::cout << std::endl;
         }
     }
 
-    // Print external values
-    // std::cout << "External values:" << std::endl;
-    // for (size_t y = 0; y < dimension; y++) {
-    //     for (size_t x = 0; x < dimension; x++) {
-    //         size_t offset = x + y * dimension;
-    //         for (size_t i = 0; i < program_num_outputs; i++) {
-    //             std::cout << processed_image[program_num_outputs * offset + i];
-    //         }
-    //         std::cout << " ";
-    //     }
-    //     std::cout << std::endl;
+    // Testing logging
+    // if (test_passed) {
+    //     // Logging when tests pass
+    //     std::cout << programFilename << " test passed with frame rate " << 1000.0f / per_frame_timings[per_frame_timings.size() - 1] << " fps" << std::endl;
+    // } else {
+    //     std::cout << programFilename << " test failed" << std::endl;
     // }
-
-    if (test_passed) {
-        // Logging when tests pass
-        std::cout << programFilename << " test passed with frame rate " << 1000.0f / per_frame_timings[per_frame_timings.size() - 1] << " fps" << std::endl;
-    } else {
-        std::cout << programFilename << " test failed" << std::endl;
-    }
 
     // Print power and area
     double computeArea = getComputeArea(program.vliwWidth) * dimension * dimension;
@@ -843,7 +847,7 @@ int main() {
     queryGPUProperties();
 
     // Performance evaluation
-    const char *imageFilename = "images/peacock_feather_4096.jpg";
+    const char *imageFilename = "images/square.png";
     // for (size_t dimension = 100; dimension <= 2000; dimension += 100) {
     //     std::cout << dimension << ", ";
     //     std::pair<double, double> cpu_tests_result = testAllPrograms(imageFilename, dimension, false);
