@@ -81,7 +81,7 @@ uint8_t* transform_image(const char* filename, int new_dimension, int new_bits) 
     return gray_data;
 }
 
-std::pair<bool *, float> process_image_gpu(Program program, uint8_t* pixels, size_t image_x_dim, size_t image_y_dim, bool use_shared_memory) {
+std::pair<bool *, float> process_image_gpu(Program program, uint8_t* pixels, size_t image_x_dim, size_t image_y_dim, size_t num_iterations, bool use_shared_memory) {
     size_t program_num_outputs = numOutputs(program);
     size_t program_num_shared_neighbours = numSharedNeighbours(program);
     
@@ -116,7 +116,7 @@ std::pair<bool *, float> process_image_gpu(Program program, uint8_t* pixels, siz
 
     // external values
     bool* dev_external_values;
-    size_t external_values_mem_size = sizeof(bool) * image_size * program_num_outputs;
+    size_t external_values_mem_size = sizeof(bool) * image_size * program_num_outputs * num_iterations;
     HANDLE_ERROR(cudaMalloc((void **) &dev_external_values, external_values_mem_size));
     HANDLE_ERROR(cudaMemset(dev_external_values, 0, external_values_mem_size));
 
@@ -177,7 +177,8 @@ std::pair<bool *, float> process_image_gpu(Program program, uint8_t* pixels, siz
         (void *) &program.isPipelining,
         (void *) &dev_local_memory_values,
         (void *) &dev_carry_register_values,
-        (void *) &dev_result_values
+        (void *) &dev_result_values,
+        (void *) &num_iterations
     };
     cudaLaunchCooperativeKernel((void *) processingElemKernel, blocks, threads, kernelArgs);
 
@@ -446,8 +447,9 @@ void testProgram(std::string programFilename,
     const char *imageFilename,
     size_t dimension,
     size_t num_bits,
+    size_t num_iterations,
     size_t expected_program_num_outputs,
-    std::vector<std::vector<std::vector<bool>>> expected_image,
+    std::vector<std::vector<std::vector<std::vector<bool>>>> expected_image,
     std::vector<float>& real_time_timings,
     std::vector<float>& per_frame_timings,
     bool useGPU
@@ -490,10 +492,12 @@ void testProgram(std::string programFilename,
 
     size_t program_num_outputs = numOutputs(program);
 
+    size_t image_size = dimension * dimension;
+
     bool *processed_image = nullptr;
     if (useGPU) {
         auto normal_start = std::chrono::high_resolution_clock::now();
-        std::pair<bool *, float> process_image_result = process_image_gpu(program, image, dimension, dimension, true);
+        std::pair<bool *, float> process_image_result = process_image_gpu(program, image, dimension, dimension, num_iterations, true);
         auto normal_stop = std::chrono::high_resolution_clock::now();
         size_t real_time_duration = std::chrono::duration_cast<std::chrono::microseconds>(normal_stop - normal_start).count();
         processed_image = process_image_result.first;
@@ -510,14 +514,16 @@ void testProgram(std::string programFilename,
     }
 
     bool test_passed = true;
-    for (size_t y = 0; y < dimension; y++) {
-        for (size_t x = 0; x < dimension; x++) {
-            size_t offset = x + y * dimension;
-            for (int64_t i = program_num_outputs - 1; i >= 0; i--) {
-                bool actual_value = processed_image[program_num_outputs * offset + i];
-                if (actual_value != expected_image[y][x][i]) {
-                    std::cout << "Mismatch at (" << x << ", " << y << ")[" << i << "]: " << actual_value << " != " << expected_image[y][x][i] << std::endl;
-                    test_passed = false;
+    for (size_t iter = 0; iter < num_iterations; iter++) {
+        for (size_t y = 0; y < dimension; y++) {
+            for (size_t x = 0; x < dimension; x++) {
+                size_t offset = x + y * dimension;
+                for (int64_t i = program_num_outputs - 1; i >= 0; i--) {
+                    bool actual_value = processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + i];
+                    if (actual_value != expected_image[iter][y][x][i]) {
+                        std::cout << "Mismatch at (" << x << ", " << y << ")[" << i << "] at iteration " << iter << ": " << actual_value << " != " << expected_image[iter][y][x][i] << std::endl;
+                        test_passed = false;
+                    }
                 }
             }
         }
@@ -686,6 +692,20 @@ std::vector<std::vector<std::vector<bool>>> getExpectedImageForMultiBitSmoothing
     return expected_image;
 }
 
+std::vector<std::vector<std::vector<std::vector<bool>>>> getExpectedImageForBinaryBPIsingModel(const char *imageFilename, size_t num_bits, size_t dimension, size_t expected_program_num_outputs, size_t num_iterations) {
+    uint8_t* image = transform_image(imageFilename, dimension, num_bits);
+    std::vector<std::vector<std::vector<std::vector<bool>>>> expected_images(num_iterations, std::vector<std::vector<std::vector<bool>>>(dimension, std::vector<std::vector<bool>>(dimension, std::vector<bool>(expected_program_num_outputs, 0))));
+    for (size_t iter = 1; iter < num_iterations; iter++) {
+        for (int i = 0; i < dimension; i++) {
+            for (int j = 0; j < dimension; j++) {
+                expected_images[iter][i][j][0] = 1;
+            }
+        }
+    }
+    free(image);
+    return expected_images;
+}
+
 std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dimension, bool useGPU) {
 
     uint8_t* image = transform_image(imageFilename, dimension, 1);
@@ -706,7 +726,7 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
     // }
 
     size_t min_vliw_width = 1;
-    size_t max_vliw_width = 4;
+    size_t max_vliw_width = 1;
     bool do_pipelining = false;
     // Note: Need to change this if we need to add more tests
     std::vector<float> real_time_timings;
@@ -716,6 +736,7 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
         for (size_t pipelining = 0; (pipelining <= do_pipelining && vliwWidth == 1) || pipelining == 0; pipelining++) {
             std::string directory_name = pipelining == 0 ? std::to_string(vliwWidth) + "_vliw_slot/" : "pipelining/";
             bool is_pipelining = pipelining == 1;
+            /*
             testProgram(
                 ("programs/" + directory_name + "edge_detection_one_bit.vis").c_str(),
                 vliwWidth,
@@ -785,6 +806,23 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
                 per_frame_timings,
                 useGPU
             );
+            */
+
+            const size_t NUM_BP_ITERATIONS = 10;
+            testProgram(
+                ("programs/" + directory_name + "binary_bp_ising_model.vis").c_str(),
+                vliwWidth,
+                is_pipelining,
+                imageFilename,
+                dimension,
+                8,
+                1,
+                NUM_BP_ITERATIONS,
+                getExpectedImageForBinaryBPIsingModel(imageFilename, 8, dimension, 1, NUM_BP_ITERATIONS),
+                real_time_timings,
+                per_frame_timings,
+                useGPU
+            );
         }
     }
 
@@ -814,12 +852,12 @@ int main() {
     //     std::cout << 1000.0f / gpu_tests_result.second << ", ";
     // }
 
-    size_t dimension = 128;
-    std::pair<double, double> cpu_tests_result = testAllPrograms(imageFilename, dimension, false);
-    std::cout << "Average real-time processing time (CPU): " << cpu_tests_result.first << " ms" << std::endl;
-    std::cout << "Average real-time frame rate (CPU): " << 1000.0f / cpu_tests_result.first << " fps" << std::endl;
-    std::cout << "Average per-frame processing time (CPU): " << cpu_tests_result.second << " ms" << std::endl;
-    std::cout << "Average per-frame frame rate (CPU): " << 1000.0f / cpu_tests_result.second << " fps" << std::endl;
+    size_t dimension = 10;
+    // std::pair<double, double> cpu_tests_result = testAllPrograms(imageFilename, dimension, false);
+    // std::cout << "Average real-time processing time (CPU): " << cpu_tests_result.first << " ms" << std::endl;
+    // std::cout << "Average real-time frame rate (CPU): " << 1000.0f / cpu_tests_result.first << " fps" << std::endl;
+    // std::cout << "Average per-frame processing time (CPU): " << cpu_tests_result.second << " ms" << std::endl;
+    // std::cout << "Average per-frame frame rate (CPU): " << 1000.0f / cpu_tests_result.second << " fps" << std::endl;
 
     std::pair<double, double> gpu_tests_result = testAllPrograms(imageFilename, dimension, true);
     std::cout << "Average real-time processing time (GPU): " << gpu_tests_result.first << " ms" << std::endl;
