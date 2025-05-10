@@ -1,0 +1,11 @@
+[5] = ~0 + ~0 + CR (c);
+external = PD + ~0 + CR (s);
+external = PD + ~0 + CR (s);
+external = PD + ~0 + CR (s);
+external = PD + ~0 + CR (s);
+external = PD + ~0 + CR (s);
+external = PD + ~0 + CR (s);
+external = PD + ~0 + CR (s);
+external = PD + 0 + CR (s);
+[5] = ~0 + ~0 + CR (c);
+end

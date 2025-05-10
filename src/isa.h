@@ -1,10 +1,10 @@
 #pragma once
+#include <cctype>
 #include <iostream>
 #include <string>
 #include <vector>
-#include <cctype>
 // Note: MEMORY_SIZE_IN_BITS
-#define MEMORY_SIZE_IN_BITS 24
+#define MEMORY_SIZE_IN_BITS 130
 #define CLOCK_FREQUENCY 2e8  // 200 MHz
 
 enum class InputKind { Address, PD, Up, Down, Right, Left, ZeroValue };
@@ -16,7 +16,7 @@ struct Input {
 
 // convert to enum
 struct ResultType {
-    char value; // 's' or 'c'
+    char value;  // 's' or 'c'
 };
 
 enum class ResultKind { Address, Neighbour, External };
@@ -40,10 +40,10 @@ enum class Carry { Zero, One, CR };
 __device__ __host__ void printCarry(Carry carry);
 
 struct Instruction {
-    Result result; 
-    InputC input1; 
-    InputC input2; 
-    Carry carry; 
+    Result result;
+    InputC input1;
+    InputC input2;
+    Carry carry;
     ResultType resultType;
     bool isNop;
 
@@ -56,22 +56,23 @@ struct Program {
     size_t vliwWidth;
     bool isPipelining;
 
-    Program(size_t vliwWidth, size_t count, Instruction* instr, bool isPipelining);
+    Program(size_t vliwWidth, size_t count, Instruction* instr,
+            bool isPipelining);
     __device__ __host__ void print() const;
 };
 
 class Parser {
-public:
-    explicit Parser(const std::string &input);
+   public:
+    explicit Parser(const std::string& input);
     Program parse(size_t vliw, bool isPipelining);
 
-private:
+   private:
     std::string input;
     size_t pos;
 
     void skipWhitespace();
     std::vector<Instruction> parseVliwInstruction(size_t vliw);
-    bool match(const std::string &str);
+    bool match(const std::string& str);
     void expect(char ch);
     Result parseResult();
     Input parseInput();

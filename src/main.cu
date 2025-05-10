@@ -536,10 +536,12 @@ void testProgram(std::string programFilename,
         for (size_t y = 0; y < dimension; y++) {
             for (size_t x = 0; x < dimension; x++) {
                 size_t offset = x + y * dimension;
-                for (size_t i = 0; i < program_num_outputs; i++) {
+                uint8_t val = 0;
+                for (int i = program_num_outputs - 1; i >= 0; i--) {
                     std::cout << processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + i];
+                    val |= processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + i] << i;
                 }
-                std::cout << " ";
+                printf("(%4d) ", (int8_t) val);
             }
             std::cout << std::endl;
         }
@@ -812,7 +814,7 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
             );
             */
 
-            const size_t NUM_BP_ITERATIONS = 10;
+            const size_t NUM_BP_ITERATIONS = 1;
             testProgram(
                 ("programs/" + directory_name + "binary_bp_ising_model.vis").c_str(),
                 vliwWidth,
@@ -820,9 +822,24 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
                 imageFilename,
                 dimension,
                 8,
-                1,
+                8,
                 NUM_BP_ITERATIONS,
                 getExpectedImageForBinaryBPIsingModel(imageFilename, 8, dimension, 1, NUM_BP_ITERATIONS),
+                real_time_timings,
+                per_frame_timings,
+                useGPU
+            );
+
+            testProgram(
+                ("programs/" + directory_name + "scale_pd.vis").c_str(),
+                vliwWidth,
+                is_pipelining,
+                imageFilename,
+                dimension,
+                8,
+                8,
+                1,
+                getExpectedImageForBinaryBPIsingModel(imageFilename, 8, dimension, 8, 1),
                 real_time_timings,
                 per_frame_timings,
                 useGPU
