@@ -102,6 +102,7 @@ __device__ bool getInstructionInputValue(
 }
 
 __global__ void processingElemKernel(
+    Instruction* instructions,
     size_t num_instructions,
     uint8_t* image,
     bool* neighbour_shared_values,
@@ -152,7 +153,7 @@ __global__ void processingElemKernel(
                 while (offset < image_size) {
                     if (i < num_instructions) {
                         for (size_t j = 0; j < vliw_width; j++) { 
-                            const Instruction instruction = ((Instruction *) dev_instructions)[i * vliw_width + j];
+                            const Instruction instruction = instructions[i * vliw_width + j];
                             if (instruction.isNop) {
                                 continue;
                             }
@@ -221,8 +222,8 @@ __global__ void processingElemKernel(
                         for (size_t j = 0; j < vliw_width; j++) {
                             const Instruction instruction = 
                             !is_pipelining ?
-                            ((Instruction *) dev_instructions)[i * vliw_width + j] :
-                            ((Instruction *) dev_instructions)[(i - PIPELINE_WIDTH + 1) * vliw_width + j];
+                            instructions[i * vliw_width + j] :
+                            instructions[(i - PIPELINE_WIDTH + 1) * vliw_width + j];
                             if (instruction.isNop) {
                                 continue;
                             }

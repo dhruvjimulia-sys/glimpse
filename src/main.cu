@@ -9,8 +9,6 @@
 #include "utils/program_utils.h"
 #include "powerandarea.h"
 
-__constant__ char dev_instructions[sizeof(Instruction) * MAX_NUM_INSTRUCTIONS];
-
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb/stb_image.h"
 #define STB_IMAGE_RESIZE_IMPLEMENTATION
@@ -86,13 +84,10 @@ std::pair<bool *, float> process_image_gpu(Program program, uint8_t* pixels, siz
     size_t program_num_shared_neighbours = numSharedNeighbours(program);
     
     // Non-constant memory version
-    // Instruction* dev_instructions;
-    // size_t instructions_mem_size = sizeof(Instruction) * program.instructionCount * program.vliwWidth;
-    // HANDLE_ERROR(cudaMalloc((void **) &dev_instructions, instructions_mem_size));
-    // HANDLE_ERROR(cudaMemcpy(dev_instructions, program.instructions, instructions_mem_size, cudaMemcpyHostToDevice));
-
+    Instruction* dev_instructions;
     size_t instructions_mem_size = sizeof(Instruction) * program.instructionCount * program.vliwWidth;
-    HANDLE_ERROR(cudaMemcpyToSymbol(dev_instructions, (void *) program.instructions, instructions_mem_size));
+    HANDLE_ERROR(cudaMalloc((void **) &dev_instructions, instructions_mem_size));
+    HANDLE_ERROR(cudaMemcpy(dev_instructions, program.instructions, instructions_mem_size, cudaMemcpyHostToDevice));
 
     // read grayscale pixels from image and memcpy to cuda memory
     size_t image_size = image_x_dim * image_y_dim;
@@ -161,6 +156,7 @@ std::pair<bool *, float> process_image_gpu(Program program, uint8_t* pixels, siz
     dim3 threads(NUM_THREADS_PER_BLOCK_PER_DIM, NUM_THREADS_PER_BLOCK_PER_DIM);
 
     void *kernelArgs[] = {
+        (void *) &dev_instructions,
         (void *) &program.instructionCount,
         (void *) &dev_image,
         (void *) &dev_neighbour_shared_values,
@@ -209,7 +205,7 @@ std::pair<bool *, float> process_image_gpu(Program program, uint8_t* pixels, siz
     //     }
     // }
 
-    // HANDLE_ERROR(cudaFree(dev_instructions));
+    HANDLE_ERROR(cudaFree(dev_instructions));
     HANDLE_ERROR(cudaFree(dev_image));
     HANDLE_ERROR(cudaFree(dev_neighbour_shared_values));
     HANDLE_ERROR(cudaFree(dev_external_values));
@@ -536,12 +532,21 @@ void testProgram(std::string programFilename,
         for (size_t y = 0; y < dimension; y++) {
             for (size_t x = 0; x < dimension; x++) {
                 size_t offset = x + y * dimension;
-                uint8_t val = 0;
-                for (int i = program_num_outputs - 1; i >= 0; i--) {
-                    std::cout << processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + i];
-                    val |= processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + i] << i;
+                uint16_t val = 0;
+                // for (int i = program_num_outputs - 1; i >= 0; i--) {
+                //     std::cout << processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + i];
+                //     val |= processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + i] << i;
+                // }
+                const size_t MAX_BITS = 16;
+                for (int i = MAX_BITS - 1; i >= 0; i--) {
+                    bool bit = (i < program_num_outputs) ? processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + i] : 
+                    processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + (program_num_outputs - 1)];
+                    if (i < program_num_outputs) {
+                        std::cout << bit;
+                    }
+                    val |= bit << i;
                 }
-                printf("(%4d) ", (int8_t) val);
+                printf("(%4d) ", (int16_t) val);
             }
             std::cout << std::endl;
         }
@@ -814,7 +819,7 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
             );
             */
 
-            const size_t NUM_BP_ITERATIONS = 1;
+            const size_t NUM_BP_ITERATIONS = 10;
             testProgram(
                 ("programs/" + directory_name + "binary_bp_ising_model.vis").c_str(),
                 vliwWidth,
