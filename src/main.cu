@@ -546,7 +546,7 @@ void testProgram(std::string programFilename,
                     }
                     val |= bit << i;
                 }
-                printf("(%4d) ", (int16_t) val);
+                // printf("(%4d) ", (int16_t) val);
             }
             std::cout << std::endl;
         }
@@ -869,7 +869,7 @@ int main() {
     queryGPUProperties();
 
     // Performance evaluation
-    const char *imageFilename = "images/square.png";
+    const char *imageFilename = "images/windmill_1700.jpg";
     // for (size_t dimension = 100; dimension <= 2000; dimension += 100) {
     //     std::cout << dimension << ", ";
     //     std::pair<double, double> cpu_tests_result = testAllPrograms(imageFilename, dimension, false);
@@ -878,7 +878,7 @@ int main() {
     //     std::cout << 1000.0f / gpu_tests_result.second << ", ";
     // }
 
-    size_t dimension = 10;
+    size_t dimension = 100;
     // std::pair<double, double> cpu_tests_result = testAllPrograms(imageFilename, dimension, false);
     // std::cout << "Average real-time processing time (CPU): " << cpu_tests_result.first << " ms" << std::endl;
     // std::cout << "Average real-time frame rate (CPU): " << 1000.0f / cpu_tests_result.first << " fps" << std::endl;
