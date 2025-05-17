@@ -500,16 +500,16 @@ void testProgram(std::string programFilename,
         auto normal_stop = std::chrono::high_resolution_clock::now();
         size_t real_time_duration = std::chrono::duration_cast<std::chrono::microseconds>(normal_stop - normal_start).count();
         processed_image = process_image_result.first;
-        per_frame_timings.push_back(process_image_result.second);
-        real_time_timings.push_back(real_time_duration / 1000.0f);
+        per_frame_timings.push_back(process_image_result.second / num_iterations);
+        real_time_timings.push_back((real_time_duration / 1000.0f) / num_iterations);
     } else {
         auto normal_start = std::chrono::high_resolution_clock::now();
         std::pair<bool *, float> process_image_result = process_image_cpu(program, image, dimension, dimension, num_iterations);
         auto normal_stop = std::chrono::high_resolution_clock::now();
         size_t real_time_duration = std::chrono::duration_cast<std::chrono::microseconds>(normal_stop - normal_start).count();
         processed_image = process_image_result.first;
-        per_frame_timings.push_back(process_image_result.second);
-        real_time_timings.push_back(real_time_duration / 1000.0f);
+        per_frame_timings.push_back(process_image_result.second / num_iterations);
+        real_time_timings.push_back((real_time_duration / 1000.0f) / num_iterations);
     }
 
     // Testing
