@@ -32,8 +32,7 @@ __device__ bool getInstructionInputValue(
     size_t offset,
     bool* neighbour_shared_values,
     size_t num_shared_neighbours,
-    size_t shared_neighbour_value,
-    bool use_shared_memory
+    size_t shared_neighbour_value
 ) {
     bool input_value = false;
     switch (inputc.input.inputKind) {
@@ -115,7 +114,6 @@ __global__ void processingElemKernel(
     size_t* debug_output,
     size_t num_debug_outputs,
     size_t vliw_width,
-    bool use_shared_memory,
     bool is_pipelining,
     bool* local_memory_values,
     bool* carry_register_values,
@@ -177,8 +175,7 @@ __global__ void processingElemKernel(
                                 offset,
                                 neighbour_shared_values,
                                 num_shared_neighbours,
-                                shared_neighbour_value,
-                                use_shared_memory
+                                shared_neighbour_value
                             );
                             bool input_two = getInstructionInputValue(
                                 instruction.input2,
@@ -194,8 +191,7 @@ __global__ void processingElemKernel(
                                 offset,
                                 neighbour_shared_values,
                                 num_shared_neighbours,
-                                shared_neighbour_value,
-                                use_shared_memory
+                                shared_neighbour_value
                             );
 
                             // printf("offset: %lu, instruction: %lu, input_one: %d, carryval: %d, input_two: %d\n", offset, i, input_one, carryval, input_two);

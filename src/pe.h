@@ -16,9 +16,10 @@ namespace cg = cooperative_groups;
 __device__ __host__ bool getBitAt(uint8_t pixel_value, size_t bit_num);
 
 __global__ void processingElemKernel(
-    Instruction* instructions, size_t num_instructions, uint8_t* image, bool* neighbour_shared_values,
-    bool* external_values, size_t image_size, size_t image_x_dim,
-    size_t image_y_dim, size_t num_outputs, size_t num_shared_neighbours,
-    size_t* debug_output, size_t num_debug_outputs, size_t vliw_width,
-    bool use_shared_memory, bool is_pipelining, bool* local_memory_values,
-    bool* carry_register_values, bool* result_values, size_t num_iterations);
+    Instruction* instructions, size_t num_instructions, uint8_t* image,
+    bool* neighbour_shared_values, bool* external_values, size_t image_size,
+    size_t image_x_dim, size_t image_y_dim, size_t num_outputs,
+    size_t num_shared_neighbours, size_t* debug_output,
+    size_t num_debug_outputs, size_t vliw_width, bool is_pipelining,
+    bool* local_memory_values, bool* carry_register_values, bool* result_values,
+    size_t num_iterations);
