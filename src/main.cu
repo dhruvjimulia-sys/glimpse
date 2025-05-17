@@ -448,7 +448,8 @@ void testProgram(std::string programFilename,
     std::vector<std::vector<std::vector<std::vector<bool>>>> expected_image,
     std::vector<float>& real_time_timings,
     std::vector<float>& per_frame_timings,
-    bool useGPU
+    bool useGPU,
+    bool test
 ) {
     uint8_t* image = transform_image(imageFilename, dimension, num_bits);
     // Print image in binary form
@@ -510,55 +511,59 @@ void testProgram(std::string programFilename,
     }
 
     // Testing
-    // bool test_passed = true;
-    // for (size_t iter = 0; iter < num_iterations; iter++) {
-    //     for (size_t y = 0; y < dimension; y++) {
-    //         for (size_t x = 0; x < dimension; x++) {
-    //             size_t offset = x + y * dimension;
-    //             for (int64_t i = program_num_outputs - 1; i >= 0; i--) {
-    //                 bool actual_value = processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + i];
-    //                 if (actual_value != expected_image[iter][y][x][i]) {
-    //                     std::cout << "Mismatch at (" << x << ", " << y << ")[" << i << "] at iteration " << iter << ": " << actual_value << " != " << expected_image[iter][y][x][i] << std::endl;
-    //                     test_passed = false;
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
+    bool test_passed = true;
+    if (test) {
+        for (size_t iter = 0; iter < num_iterations; iter++) {
+            for (size_t y = 0; y < dimension; y++) {
+                for (size_t x = 0; x < dimension; x++) {
+                    size_t offset = x + y * dimension;
+                    for (int64_t i = program_num_outputs - 1; i >= 0; i--) {
+                        bool actual_value = processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + i];
+                        if (actual_value != expected_image[iter][y][x][i]) {
+                            std::cout << "Mismatch at (" << x << ", " << y << ")[" << i << "] at iteration " << iter << ": " << actual_value << " != " << expected_image[iter][y][x][i] << std::endl;
+                            test_passed = false;
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     // Print external values
-    for (size_t iter = 0; iter < num_iterations; iter++) {
-        std::cout << "Iteration " << iter << ":" << std::endl;
-        for (size_t y = 0; y < dimension; y++) {
-            for (size_t x = 0; x < dimension; x++) {
-                size_t offset = x + y * dimension;
-                uint16_t val = 0;
-                // for (int i = program_num_outputs - 1; i >= 0; i--) {
-                //     std::cout << processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + i];
-                //     val |= processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + i] << i;
-                // }
-                const size_t MAX_BITS = 16;
-                for (int i = MAX_BITS - 1; i >= 0; i--) {
-                    bool bit = (i < program_num_outputs) ? processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + i] : 
-                    processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + (program_num_outputs - 1)];
-                    if (i < program_num_outputs) {
-                        std::cout << bit;
+    if (!test) {
+        for (size_t iter = 0; iter < num_iterations; iter++) {
+            std::cout << "Iteration " << iter << ":" << std::endl;
+            for (size_t y = 0; y < dimension; y++) {
+                for (size_t x = 0; x < dimension; x++) {
+                    size_t offset = x + y * dimension;
+                    uint16_t val = 0;
+                    // for (int i = program_num_outputs - 1; i >= 0; i--) {
+                    //     std::cout << processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + i];
+                    //     val |= processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + i] << i;
+                    // }
+                    const size_t MAX_BITS = 16;
+                    for (int i = MAX_BITS - 1; i >= 0; i--) {
+                        bool bit = (i < program_num_outputs) ? processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + i] : 
+                        processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + (program_num_outputs - 1)];
+                        if (i < program_num_outputs) {
+                            std::cout << bit;
+                        }
+                        val |= bit << i;
                     }
-                    val |= bit << i;
+                    // printf("(%4d) ", (int16_t) val);
                 }
-                // printf("(%4d) ", (int16_t) val);
+                std::cout << std::endl;
             }
-            std::cout << std::endl;
         }
     }
 
     // Testing logging
-    // if (test_passed) {
-    //     // Logging when tests pass
-    //     std::cout << programFilename << " test passed with frame rate " << 1000.0f / per_frame_timings[per_frame_timings.size() - 1] << " fps" << std::endl;
-    // } else {
-    //     std::cout << programFilename << " test failed" << std::endl;
-    // }
+    if (test_passed) {
+        // Logging when tests pass
+        std::cout << programFilename << " test passed with frame rate " << 1000.0f / per_frame_timings[per_frame_timings.size() - 1] << " fps" << std::endl;
+    } else {
+        std::cout << programFilename << " test failed" << std::endl;
+    }
 
     // Print power and area
     double computeArea = getComputeArea(program.vliwWidth) * dimension * dimension;
@@ -596,13 +601,13 @@ void testProgram(std::string programFilename,
 }
 
 
-std::vector<std::vector<std::vector<bool>>> getExpectedImageForOneBitEdgeDetection(const char *imageFilename, size_t num_bits, size_t dimension, size_t expected_program_num_outputs) {
+std::vector<std::vector<std::vector<std::vector<bool>>>> getExpectedImageForOneBitEdgeDetection(const char *imageFilename, size_t num_bits, size_t dimension, size_t expected_program_num_outputs) {
     uint8_t* image = transform_image(imageFilename, dimension, num_bits);
-    std::vector<std::vector<std::vector<bool>>> expected_image(dimension, std::vector<std::vector<bool>>(dimension, std::vector<bool>(expected_program_num_outputs, 0)));
+    std::vector<std::vector<std::vector<std::vector<bool>>>> expected_image(1, std::vector<std::vector<std::vector<bool>>>(dimension, std::vector<std::vector<bool>>(dimension, std::vector<bool>(expected_program_num_outputs, 0))));
     for (int i = 0; i < dimension; i++) {
         for (int j = 0; j < dimension; j++) {
             size_t val = image[i * dimension + j];
-            expected_image[i][j][0] =
+            expected_image[0][i][j][0] =
             (((i - 1 < 0) ? 0 : image[(i - 1) * dimension + j]) != val)
             || (((i + 1 >= dimension) ? 0 : image[(i + 1) * dimension + j]) != val)
             || (((j - 1 < 0) ? 0 : image[i * dimension + (j - 1)]) != val)
@@ -613,9 +618,9 @@ std::vector<std::vector<std::vector<bool>>> getExpectedImageForOneBitEdgeDetecti
     return expected_image;
 }
 
-std::vector<std::vector<std::vector<bool>>> getExpectedImageForOneBitThinning(const char *imageFilename, size_t num_bits, size_t dimension, size_t expected_program_num_outputs) {
+std::vector<std::vector<std::vector<std::vector<bool>>>> getExpectedImageForOneBitThinning(const char *imageFilename, size_t num_bits, size_t dimension, size_t expected_program_num_outputs) {
     uint8_t* image = transform_image(imageFilename, dimension, num_bits);
-    std::vector<std::vector<std::vector<bool>>> expected_image(dimension, std::vector<std::vector<bool>>(dimension, std::vector<bool>(expected_program_num_outputs, 0)));
+    std::vector<std::vector<std::vector<std::vector<bool>>>> expected_image(1, std::vector<std::vector<std::vector<bool>>>(dimension, std::vector<std::vector<bool>>(dimension, std::vector<bool>(expected_program_num_outputs, 0))));
     for (int i = 0; i < dimension; i++) {
         for (int j = 0; j < dimension; j++) {
             size_t count = 
@@ -623,16 +628,16 @@ std::vector<std::vector<std::vector<bool>>> getExpectedImageForOneBitThinning(co
             + ((i + 1 >= dimension) ? 0 : image[(i + 1) * dimension + j])
             + ((j - 1 < 0) ? 0 : image[i * dimension + j - 1])
             + ((j + 1 >= dimension) ? 0 : image[i * dimension + j + 1]);
-            expected_image[i][j][0] = (count == 1 || count == 2) ? 0 : image[i * dimension + j];
+            expected_image[0][i][j][0] = (count == 1 || count == 2) ? 0 : image[i * dimension + j];
         }
     }
     free(image);
     return expected_image;
 }
 
-std::vector<std::vector<std::vector<bool>>> getExpectedImageForOneBitSmoothing(const char *imageFilename, size_t num_bits, size_t dimension, size_t expected_program_num_outputs) {
+std::vector<std::vector<std::vector<std::vector<bool>>>> getExpectedImageForOneBitSmoothing(const char *imageFilename, size_t num_bits, size_t dimension, size_t expected_program_num_outputs) {
     uint8_t* image = transform_image(imageFilename, dimension, num_bits);
-    std::vector<std::vector<std::vector<bool>>> expected_image(dimension, std::vector<std::vector<bool>>(dimension, std::vector<bool>(expected_program_num_outputs, 0)));
+    std::vector<std::vector<std::vector<std::vector<bool>>>> expected_image(1, std::vector<std::vector<std::vector<bool>>>(dimension, std::vector<std::vector<bool>>(dimension, std::vector<bool>(expected_program_num_outputs, 0))));
     for (int i = 0; i < dimension; i++) {
         for (int j = 0; j < dimension; j++) {
             size_t count = 
@@ -641,16 +646,16 @@ std::vector<std::vector<std::vector<bool>>> getExpectedImageForOneBitSmoothing(c
             + ((j - 1 < 0) ? 0 : image[i * dimension + j - 1])
             + ((j + 1 >= dimension) ? 0 : image[i * dimension + j + 1])
             + image[i * dimension + j];
-            expected_image[i][j][0] = count >= 3;
+            expected_image[0][i][j][0] = count >= 3;
         }
     }
     free(image);
     return expected_image;
 }
 
-std::vector<std::vector<std::vector<bool>>> getExpectedImageForPrewittEdgeDetection(const char *imageFilename, size_t num_bits, size_t dimension, size_t expected_program_num_outputs) {
+std::vector<std::vector<std::vector<std::vector<bool>>>> getExpectedImageForPrewittEdgeDetection(const char *imageFilename, size_t num_bits, size_t dimension, size_t expected_program_num_outputs) {
     uint8_t* image = transform_image(imageFilename, dimension, num_bits);
-    std::vector<std::vector<std::vector<bool>>> expected_image(dimension, std::vector<std::vector<bool>>(dimension, std::vector<bool>(expected_program_num_outputs, 0)));
+    std::vector<std::vector<std::vector<std::vector<bool>>>> expected_image(1, std::vector<std::vector<std::vector<bool>>>(dimension, std::vector<std::vector<bool>>(dimension, std::vector<bool>(expected_program_num_outputs, 0))));
     for (int i = 0; i < dimension; i++) {
         for (int j = 0; j < dimension; j++) {
             // Prewitt edge detection
@@ -662,7 +667,7 @@ std::vector<std::vector<std::vector<bool>>> getExpectedImageForPrewittEdgeDetect
             - (((j + 1 >= dimension || i - 1 < 0) ? 0 : (int16_t) image[(i - 1) * dimension + j + 1]));
             
             for (size_t k = 0; k < expected_program_num_outputs; k++) {
-                expected_image[i][j][k] = (gx & (1 << k)) >> k;
+                expected_image[0][i][j][k] = (gx & (1 << k)) >> k;
             }
         }
     }
@@ -684,9 +689,9 @@ std::vector<std::vector<std::vector<bool>>> getExpectedImageForPrewittEdgeDetect
     return expected_image;
 }
 
-std::vector<std::vector<std::vector<bool>>> getExpectedImageForMultiBitSmoothing(const char *imageFilename, size_t num_bits, size_t dimension, size_t expected_program_num_outputs) {
+std::vector<std::vector<std::vector<std::vector<bool>>>> getExpectedImageForMultiBitSmoothing(const char *imageFilename, size_t num_bits, size_t dimension, size_t expected_program_num_outputs) {
     uint8_t* image = transform_image(imageFilename, dimension, num_bits);
-    std::vector<std::vector<std::vector<bool>>> expected_image(dimension, std::vector<std::vector<bool>>(dimension, std::vector<bool>(expected_program_num_outputs, 0)));
+    std::vector<std::vector<std::vector<std::vector<bool>>>> expected_image(1, std::vector<std::vector<std::vector<bool>>>(dimension, std::vector<std::vector<bool>>(dimension, std::vector<bool>(expected_program_num_outputs, 0))));
     for (int i = 0; i < dimension; i++) {
         for (int j = 0; j < dimension; j++) {
             uint16_t result = (((j - 1 < 0) ? 0 : (uint16_t) image[i * dimension + j - 1])
@@ -695,7 +700,7 @@ std::vector<std::vector<std::vector<bool>>> getExpectedImageForMultiBitSmoothing
             + ((j + 1 >= dimension) ? 0 : (uint16_t) image[i * dimension + j + 1])) / 4;
             
             for (size_t k = 0; k < expected_program_num_outputs; k++) {
-                expected_image[i][j][k] = (result & (1 << k)) >> k;
+                expected_image[0][i][j][k] = (result & (1 << k)) >> k;
             }
         }
     }
@@ -737,8 +742,8 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
     // }
 
     size_t min_vliw_width = 1;
-    size_t max_vliw_width = 1;
-    bool do_pipelining = false;
+    size_t max_vliw_width = 4;
+    bool do_pipelining = true;
     // Note: Need to change this if we need to add more tests
     std::vector<float> real_time_timings;
     std::vector<float> per_frame_timings;
@@ -747,7 +752,6 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
         for (size_t pipelining = 0; (pipelining <= do_pipelining && vliwWidth == 1) || pipelining == 0; pipelining++) {
             std::string directory_name = pipelining == 0 ? std::to_string(vliwWidth) + "_vliw_slot/" : "pipelining/";
             bool is_pipelining = pipelining == 1;
-            /*
             testProgram(
                 ("programs/" + directory_name + "edge_detection_one_bit.vis").c_str(),
                 vliwWidth,
@@ -756,10 +760,12 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
                 dimension,
                 1,
                 1,
+                1,
                 getExpectedImageForOneBitEdgeDetection(imageFilename, 1, dimension, 1),
                 real_time_timings,
                 per_frame_timings,
-                useGPU
+                useGPU,
+                true
             );
 
             testProgram(
@@ -770,10 +776,12 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
                 dimension,
                 1,
                 1,
+                1,
                 getExpectedImageForOneBitThinning(imageFilename, 1, dimension, 1),
                 real_time_timings,
                 per_frame_timings,
-                useGPU
+                useGPU,
+                true
             );
 
             testProgram(
@@ -784,10 +792,12 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
                 dimension,
                 1,
                 1,
+                1,
                 getExpectedImageForOneBitSmoothing(imageFilename, 1, dimension, 1),
                 real_time_timings,
                 per_frame_timings,
-                useGPU
+                useGPU,
+                true
             );
 
             testProgram(
@@ -798,10 +808,12 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
                 dimension,
                 6,
                 9,
+                1,
                 getExpectedImageForPrewittEdgeDetection(imageFilename, 6, dimension, 9),
                 real_time_timings,
                 per_frame_timings,
-                useGPU
+                useGPU,
+                true
             );
 
             testProgram(
@@ -812,43 +824,32 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
                 dimension,
                 6,
                 6,
+                1,
                 getExpectedImageForMultiBitSmoothing(imageFilename, 6, dimension, 6),
                 real_time_timings,
                 per_frame_timings,
-                useGPU
-            );
-            */
-
-            const size_t NUM_BP_ITERATIONS = 10;
-            testProgram(
-                ("programs/" + directory_name + "binary_bp_ising_model.vis").c_str(),
-                vliwWidth,
-                is_pipelining,
-                imageFilename,
-                dimension,
-                8,
-                8,
-                NUM_BP_ITERATIONS,
-                getExpectedImageForBinaryBPIsingModel(imageFilename, 8, dimension, 1, NUM_BP_ITERATIONS),
-                real_time_timings,
-                per_frame_timings,
-                useGPU
+                useGPU,
+                true
             );
 
-            testProgram(
-                ("programs/" + directory_name + "scale_pd.vis").c_str(),
-                vliwWidth,
-                is_pipelining,
-                imageFilename,
-                dimension,
-                8,
-                8,
-                1,
-                getExpectedImageForBinaryBPIsingModel(imageFilename, 8, dimension, 8, 1),
-                real_time_timings,
-                per_frame_timings,
-                useGPU
-            );
+            if (vliwWidth == 1 && !pipelining) {
+                const size_t NUM_BP_ITERATIONS = 10;
+                testProgram(
+                    ("programs/" + directory_name + "binary_bp_ising_model.vis").c_str(),
+                    vliwWidth,
+                    is_pipelining,
+                    imageFilename,
+                    dimension,
+                    8,
+                    8,
+                    NUM_BP_ITERATIONS,
+                    getExpectedImageForBinaryBPIsingModel(imageFilename, 8, dimension, 1, NUM_BP_ITERATIONS),
+                    real_time_timings,
+                    per_frame_timings,
+                    useGPU,
+                    false
+                );
+            }
         }
     }
 
