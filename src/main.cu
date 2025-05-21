@@ -36,6 +36,18 @@ std::string replaceAll(const std::string& input,
     return result;
 }
 
+uint8_t quantizeTo8Bit(uint16_t x, uint8_t n) {
+    if (n >= 16 || n == 0) {
+        throw std::invalid_argument("n must be between 1 and 15");
+    }
+
+    uint32_t max_val = (1u << n) - 1;    // Max value for n bits
+    x = std::min(x, static_cast<uint16_t>(max_val));  // Clip to [0, 2^n - 1]
+    
+    // Round to nearest integer by adding half of max_val
+    uint32_t result = (static_cast<uint32_t>(x) * 255 + (max_val / 2)) / max_val;
+    return static_cast<uint8_t>(result);
+}
 
 uint8_t* transform_image(const char* filename, int new_dimension, int new_bits) {
     int width, height, channels;
@@ -98,6 +110,22 @@ uint8_t* transform_image(const char* filename, int new_dimension, int new_bits) 
             gray_data[i] = (gray_data[i] >> (8 - new_bits)) & max_level;
         }
     }
+
+    // Create "outputimages" directory if it doesn't exist
+    if (mkdir("outputimages", 0777) == -1) {
+        if (errno != EEXIST) {
+            std::cerr << "Error creating directory: " << strerror(errno) << std::endl;
+        }
+    }
+
+    // Save the grayscale image
+    uint8_t* image_output_data = (uint8_t*) malloc(new_dimension * new_dimension * sizeof(uint8_t));
+    for (int i = 0; i < new_dimension * new_dimension; ++i) {
+        image_output_data[i] = quantizeTo8Bit(gray_data[i], new_bits);
+    }
+    std::string output_filename = "outputimages/visionchipimg_" + std::to_string(new_bits);
+    stbi_write_png((output_filename + ".png").c_str(), new_dimension, new_dimension, 1, image_output_data, new_dimension);
+    free(image_output_data);
 
     return gray_data;
 }
@@ -474,7 +502,8 @@ void testProgram(std::string programFilename,
     std::vector<float>& real_time_timings,
     std::vector<float>& per_frame_timings,
     bool useGPU,
-    bool test
+    bool test,
+    bool twosComplementOutput
 ) {
     uint8_t* image = transform_image(imageFilename, dimension, num_bits);
     // Print image in binary form
@@ -513,6 +542,11 @@ void testProgram(std::string programFilename,
     // program.print();
 
     size_t program_num_outputs = numOutputs(program);
+
+    if (expected_program_num_outputs != program_num_outputs) {
+        std::cerr << "Error: Expected program num outputs " << expected_program_num_outputs << " but got " << program_num_outputs << std::endl;
+        exit(EXIT_FAILURE);
+    }
 
     size_t image_size = dimension * dimension;
 
@@ -561,7 +595,7 @@ void testProgram(std::string programFilename,
         }
     }
 
-    std::string output_filename = "outputimages/" + replaceAll(replaceAll(programFilename, "/", "_"), ".", "_") + "_" + (useGPU ? "cpu" : "gpu");
+    std::string output_filename = "outputimages/" + replaceAll(replaceAll(programFilename, "/", "_"), ".", "_") + "_" + (useGPU ? "gpu" : "cpu");
     if (num_iterations > 1) {
         if (mkdir(output_filename.c_str(), 0777) == -1) {
             if (errno != EEXIST) {
@@ -569,43 +603,50 @@ void testProgram(std::string programFilename,
             }
         }
     }
-
-    uint8_t* data = (uint8_t*) malloc(dimension * dimension * sizeof(uint8_t));
-    if (!data) {
-        exit(EXIT_FAILURE); // Allocation failed
-    }
-    for (size_t iter = 0; iter < num_iterations; iter++) {
-        // std::cout << "Iteration " << iter << ":" << std::endl;
-        for (size_t y = 0; y < dimension; y++) {
-            for (size_t x = 0; x < dimension; x++) {
-                size_t offset = x + y * dimension;
-                uint8_t val = 0;
-                // for (int i = program_num_outputs - 1; i >= 0; i--) {
-                //     std::cout << processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + i];
-                //     val |= processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + i] << i;
-                // }
-                const size_t MAX_BITS = 8;
-                for (int i = MAX_BITS - 1; i >= 0; i--) {
-                    bool bit = (i < program_num_outputs) ? processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + i] : 
-                    processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + (program_num_outputs - 1)];
-                    if (i < program_num_outputs) {
-                        // std::cout << bit;
+    
+    if (!twosComplementOutput) {
+        uint8_t* data = (uint8_t*) malloc(dimension * dimension * sizeof(uint8_t));
+        if (!data) {
+            exit(EXIT_FAILURE); // Allocation failed
+        }
+        for (size_t iter = 0; iter < num_iterations; iter++) {
+            // std::cout << "Iteration " << iter << ":" << std::endl;
+            for (size_t y = 0; y < dimension; y++) {
+                for (size_t x = 0; x < dimension; x++) {
+                    size_t offset = x + y * dimension;
+                    uint16_t val = 0;
+                    // for (int i = program_num_outputs - 1; i >= 0; i--) {
+                    //     std::cout << processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + i];
+                    //     val |= processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + i] << i;
+                    // }
+                    const size_t MAX_BITS = 16;
+                    for (int i = MAX_BITS - 1; i >= 0; i--) {
+                        bool bit = (i < program_num_outputs) ? processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + i] : (
+                            twosComplementOutput ?
+                            processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + (program_num_outputs - 1)] :
+                            0
+                        );
+                        if (i < program_num_outputs) {
+                            // std::cout << bit;
+                        }
+                        val |= bit << i;
                     }
-                    val |= bit << i;
+                    // printf("(%4d) ", (int16_t) val);
+                    val = quantizeTo8Bit(val, program_num_outputs);
+                    // std::cout << (int) val << " ";
+                    data[y * dimension + x] = val;
                 }
-                // printf("(%4d) ", (int16_t) val);
-                data[y * dimension + x] = val;
+                // std::cout << std::endl;
             }
-            // std::cout << std::endl;
+            if (num_iterations == 1) {
+                stbi_write_png((output_filename + ".png").c_str(), dimension, dimension, 1, data, dimension);
+            } else {
+                std::string output_filename_iter = output_filename + "/iteration_" + std::to_string(iter) + ".png";
+                stbi_write_png(output_filename_iter.c_str(), dimension, dimension, 1, data, dimension);
+            }
         }
-        if (num_iterations == 1) {
-            stbi_write_png((output_filename + ".png").c_str(), dimension, dimension, 1, data, dimension);
-        } else {
-            std::string output_filename_iter = output_filename + "/iteration_" + std::to_string(iter) + ".png";
-            stbi_write_png(output_filename_iter.c_str(), dimension, dimension, 1, data, dimension);
-        }
+        free(data);
     }
-    free(data);
 
     // Testing logging
     if (test_passed) {
@@ -817,7 +858,8 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
                 real_time_timings,
                 per_frame_timings,
                 useGPU,
-                true
+                true,
+                false
             );
 
             testProgram(
@@ -833,7 +875,8 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
                 real_time_timings,
                 per_frame_timings,
                 useGPU,
-                true
+                true,
+                false
             );
 
             testProgram(
@@ -849,7 +892,8 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
                 real_time_timings,
                 per_frame_timings,
                 useGPU,
-                true
+                true,
+                false
             );
 
             testProgram(
@@ -865,6 +909,7 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
                 real_time_timings,
                 per_frame_timings,
                 useGPU,
+                true,
                 true
             );
 
@@ -881,7 +926,8 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
                 real_time_timings,
                 per_frame_timings,
                 useGPU,
-                true
+                true,
+                false
             );
 
             if (vliwWidth == 1 && !pipelining) {
@@ -893,12 +939,13 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
                     imageFilename,
                     dimension,
                     8,
-                    8,
+                    1,
                     NUM_BP_ITERATIONS,
                     getExpectedImageForBinaryBPIsingModel(imageFilename, 8, dimension, 1, NUM_BP_ITERATIONS),
                     real_time_timings,
                     per_frame_timings,
                     useGPU,
+                    false,
                     false
                 );
             }
@@ -922,7 +969,7 @@ int main() {
     queryGPUProperties();
 
     // Performance evaluation
-    const char *imageFilename = "images/windmill_1700.jpg";
+    const char *imageFilename = "images/peacock_feather_4096.jpg";
     // for (size_t dimension = 100; dimension <= 2000; dimension += 100) {
     //     std::cout << dimension << ", ";
     //     std::pair<double, double> cpu_tests_result = testAllPrograms(imageFilename, dimension, false);
@@ -931,12 +978,12 @@ int main() {
     //     std::cout << 1000.0f / gpu_tests_result.second << ", ";
     // }
 
-    size_t dimension = 100;
-    std::pair<double, double> cpu_tests_result = testAllPrograms(imageFilename, dimension, false);
-    std::cout << "Average real-time processing time (CPU): " << cpu_tests_result.first << " ms" << std::endl;
-    std::cout << "Average real-time frame rate (CPU): " << 1000.0f / cpu_tests_result.first << " fps" << std::endl;
-    std::cout << "Average per-frame processing time (CPU): " << cpu_tests_result.second << " ms" << std::endl;
-    std::cout << "Average per-frame frame rate (CPU): " << 1000.0f / cpu_tests_result.second << " fps" << std::endl;
+    size_t dimension = 1000;
+    // std::pair<double, double> cpu_tests_result = testAllPrograms(imageFilename, dimension, false);
+    // std::cout << "Average real-time processing time (CPU): " << cpu_tests_result.first << " ms" << std::endl;
+    // std::cout << "Average real-time frame rate (CPU): " << 1000.0f / cpu_tests_result.first << " fps" << std::endl;
+    // std::cout << "Average per-frame processing time (CPU): " << cpu_tests_result.second << " ms" << std::endl;
+    // std::cout << "Average per-frame frame rate (CPU): " << 1000.0f / cpu_tests_result.second << " fps" << std::endl;
 
     std::pair<double, double> gpu_tests_result = testAllPrograms(imageFilename, dimension, true);
     std::cout << "Average real-time processing time (GPU): " << gpu_tests_result.first << " ms" << std::endl;
