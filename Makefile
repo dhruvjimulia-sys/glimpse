@@ -1,5 +1,8 @@
 NVCC = nvcc
 
+# OPENCV_CFLAGS = $(shell pkg-config --cflags opencv4)
+# OPENCV_LIBS   = $(shell pkg-config --libs opencv4)
+
 # suppressed warnings from SBT library
 
 # optimized build
@@ -18,7 +21,7 @@ TARGET = build/main
 all: $(TARGET)
 
 $(TARGET): $(SRC)
-	$(NVCC) $(CFLAGS) -o $(TARGET) $(SRC) 
+	$(NVCC) $(CFLAGS) -o $(TARGET) $(SRC)
 
 clean:
 	rm -f $(TARGET)

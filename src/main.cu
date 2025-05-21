@@ -8,11 +8,34 @@
 #include "utils/file_utils.h"
 #include "utils/program_utils.h"
 #include "powerandarea.h"
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <errno.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb/stb_image.h"
 #define STB_IMAGE_RESIZE_IMPLEMENTATION
 #include "stb/stb_image_resize2.h"
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb/stb_image_write.h"
+
+// Note: can move to utils
+std::string replaceAll(const std::string& input,
+    const std::string& from,
+    const std::string& to) {
+    if (from.empty()) return input;  // Avoid infinite loop
+
+    std::string result = input;
+    size_t startPos = 0;
+
+    while ((startPos = result.find(from, startPos)) != std::string::npos) {
+        result.replace(startPos, from.length(), to);
+        startPos += to.length();  // Move past the replacement
+    }
+
+    return result;
+}
+
 
 uint8_t* transform_image(const char* filename, int new_dimension, int new_bits) {
     int width, height, channels;
@@ -531,33 +554,58 @@ void testProgram(std::string programFilename,
         }
     }
 
-    // Print external values
-    if (!test) {
-        for (size_t iter = 0; iter < num_iterations; iter++) {
-            std::cout << "Iteration " << iter << ":" << std::endl;
-            for (size_t y = 0; y < dimension; y++) {
-                for (size_t x = 0; x < dimension; x++) {
-                    size_t offset = x + y * dimension;
-                    uint16_t val = 0;
-                    // for (int i = program_num_outputs - 1; i >= 0; i--) {
-                    //     std::cout << processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + i];
-                    //     val |= processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + i] << i;
-                    // }
-                    const size_t MAX_BITS = 16;
-                    for (int i = MAX_BITS - 1; i >= 0; i--) {
-                        bool bit = (i < program_num_outputs) ? processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + i] : 
-                        processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + (program_num_outputs - 1)];
-                        if (i < program_num_outputs) {
-                            std::cout << bit;
-                        }
-                        val |= bit << i;
-                    }
-                    // printf("(%4d) ", (int16_t) val);
-                }
-                std::cout << std::endl;
+    // Create "outputimages" directory if it doesn't exist
+    if (mkdir("outputimages", 0777) == -1) {
+        if (errno != EEXIST) {
+            std::cerr << "Error creating directory: " << strerror(errno) << std::endl;
+        }
+    }
+
+    std::string output_filename = "outputimages/" + replaceAll(replaceAll(programFilename, "/", "_"), ".", "_") + "_" + (useGPU ? "cpu" : "gpu");
+    if (num_iterations > 1) {
+        if (mkdir(output_filename.c_str(), 0777) == -1) {
+            if (errno != EEXIST) {
+                std::cerr << "Error creating directory: " << strerror(errno) << std::endl;
             }
         }
     }
+
+    uint8_t* data = (uint8_t*) malloc(dimension * dimension * sizeof(uint8_t));
+    if (!data) {
+        exit(EXIT_FAILURE); // Allocation failed
+    }
+    for (size_t iter = 0; iter < num_iterations; iter++) {
+        // std::cout << "Iteration " << iter << ":" << std::endl;
+        for (size_t y = 0; y < dimension; y++) {
+            for (size_t x = 0; x < dimension; x++) {
+                size_t offset = x + y * dimension;
+                uint8_t val = 0;
+                // for (int i = program_num_outputs - 1; i >= 0; i--) {
+                //     std::cout << processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + i];
+                //     val |= processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + i] << i;
+                // }
+                const size_t MAX_BITS = 8;
+                for (int i = MAX_BITS - 1; i >= 0; i--) {
+                    bool bit = (i < program_num_outputs) ? processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + i] : 
+                    processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + (program_num_outputs - 1)];
+                    if (i < program_num_outputs) {
+                        // std::cout << bit;
+                    }
+                    val |= bit << i;
+                }
+                // printf("(%4d) ", (int16_t) val);
+                data[y * dimension + x] = val;
+            }
+            // std::cout << std::endl;
+        }
+        if (num_iterations == 1) {
+            stbi_write_png((output_filename + ".png").c_str(), dimension, dimension, 1, data, dimension);
+        } else {
+            std::string output_filename_iter = output_filename + "/iteration_" + std::to_string(iter) + ".png";
+            stbi_write_png(output_filename_iter.c_str(), dimension, dimension, 1, data, dimension);
+        }
+    }
+    free(data);
 
     // Testing logging
     if (test_passed) {

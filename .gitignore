@@ -1,4 +1,5 @@
 build/
+outputimages/
 
 *.output
 *.cfg.tmp.out
