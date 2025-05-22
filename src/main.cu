@@ -604,49 +604,46 @@ void testProgram(std::string programFilename,
         }
     }
     
-    if (!twosComplementOutput) {
-        uint8_t* data = (uint8_t*) malloc(dimension * dimension * sizeof(uint8_t));
-        if (!data) {
-            exit(EXIT_FAILURE); // Allocation failed
-        }
-        for (size_t iter = 0; iter < num_iterations; iter++) {
-            // std::cout << "Iteration " << iter << ":" << std::endl;
-            for (size_t y = 0; y < dimension; y++) {
-                for (size_t x = 0; x < dimension; x++) {
-                    size_t offset = x + y * dimension;
-                    uint16_t val = 0;
-                    // for (int i = program_num_outputs - 1; i >= 0; i--) {
-                    //     std::cout << processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + i];
-                    //     val |= processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + i] << i;
-                    // }
-                    const size_t MAX_BITS = 16;
-                    for (int i = MAX_BITS - 1; i >= 0; i--) {
-                        bool bit = (i < program_num_outputs) ? processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + i] : (
-                            twosComplementOutput ?
-                            processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + (program_num_outputs - 1)] :
-                            0
-                        );
-                        if (i < program_num_outputs) {
-                            // std::cout << bit;
-                        }
-                        val |= bit << i;
-                    }
-                    // printf("(%4d) ", (int16_t) val);
-                    val = quantizeTo8Bit(val, program_num_outputs);
-                    // std::cout << (int) val << " ";
-                    data[y * dimension + x] = val;
-                }
-                // std::cout << std::endl;
-            }
-            if (num_iterations == 1) {
-                stbi_write_png((output_filename + ".png").c_str(), dimension, dimension, 1, data, dimension);
-            } else {
-                std::string output_filename_iter = output_filename + "/iteration_" + std::to_string(iter) + ".png";
-                stbi_write_png(output_filename_iter.c_str(), dimension, dimension, 1, data, dimension);
-            }
-        }
-        free(data);
+    uint8_t* data = (uint8_t*) malloc(dimension * dimension * sizeof(uint8_t));
+    if (!data) {
+        exit(EXIT_FAILURE); // Allocation failed
     }
+    for (size_t iter = 0; iter < num_iterations; iter++) {
+        // std::cout << "Iteration " << iter << ":" << std::endl;
+        for (size_t y = 0; y < dimension; y++) {
+            for (size_t x = 0; x < dimension; x++) {
+                size_t offset = x + y * dimension;
+                uint16_t val = 0;
+                // for (int i = program_num_outputs - 1; i >= 0; i--) {
+                //     std::cout << processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + i];
+                //     val |= processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + i] << i;
+                // }
+                const size_t MAX_BITS = 16;
+                for (int i = MAX_BITS - 1; i >= 0; i--) {
+                    bool bit = (i < program_num_outputs) ? processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + i] : (
+                        twosComplementOutput ?
+                        processed_image[iter * program_num_outputs * image_size + program_num_outputs * offset + (program_num_outputs - 1)] :
+                        0
+                    );
+                    if (i < program_num_outputs) {
+                        // std::cout << bit;
+                    }
+                    val |= bit << i;
+                }
+                // printf("(%4d) ", (int16_t) val);
+                val = quantizeTo8Bit(val, program_num_outputs);
+                data[y * dimension + x] = val;
+            }
+            // std::cout << std::endl;
+        }
+        if (num_iterations == 1) {
+            stbi_write_png((output_filename + ".png").c_str(), dimension, dimension, 1, data, dimension);
+        } else {
+            std::string output_filename_iter = output_filename + "/iteration_" + std::to_string(iter) + ".png";
+            stbi_write_png(output_filename_iter.c_str(), dimension, dimension, 1, data, dimension);
+        }
+    }
+    free(data);
 
     // Testing logging
     if (test_passed) {
@@ -969,7 +966,7 @@ int main() {
     queryGPUProperties();
 
     // Performance evaluation
-    const char *imageFilename = "images/peacock_feather_4096.jpg";
+    const char *imageFilename = "images/windmill_1700.jpg";
     // for (size_t dimension = 100; dimension <= 2000; dimension += 100) {
     //     std::cout << dimension << ", ";
     //     std::pair<double, double> cpu_tests_result = testAllPrograms(imageFilename, dimension, false);
