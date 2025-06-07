@@ -501,6 +501,8 @@ void testProgram(std::string programFilename,
     std::vector<std::vector<std::vector<std::vector<bool>>>> expected_image,
     std::vector<float>& real_time_timings,
     std::vector<float>& per_frame_timings,
+    std::vector<double>& chip_performance,
+    std::vector<double>& chip_power,
     bool useGPU,
     bool test,
     bool twosComplementOutput
@@ -631,7 +633,8 @@ void testProgram(std::string programFilename,
                     val |= bit << i;
                 }
                 // printf("(%4d) ", (int16_t) val);
-                val = quantizeTo8Bit(val, program_num_outputs);
+                val = twosComplementOutput ? std::abs((int16_t) val) : val;
+                val = quantizeTo8Bit(val, twosComplementOutput ? program_num_outputs - 1 : program_num_outputs);
                 data[y * dimension + x] = val;
             }
             // std::cout << std::endl;
@@ -654,7 +657,6 @@ void testProgram(std::string programFilename,
     }
 
     // Print power and area
-    /*
     double computeArea = getComputeArea(program.vliwWidth) * dimension * dimension;
     double memoryArea = getMemoryArea(program.vliwWidth, program.isPipelining) * dimension * dimension;
     double computeDynPower = getComputeDynamicPower(program) * dimension * dimension;
@@ -673,17 +675,19 @@ void testProgram(std::string programFilename,
     // std::cout << "Memory Subthreshold Leakage: " << memorySubThreshLeakage << " W" << std::endl;
     // std::cout << "Compute Gate Leakage: " << computeGateLeakage << " W" << std::endl;
     // std::cout << "Memory Gate Leakage: " << memoryGateLeakage << " W" << std::endl;
-    std::cout << std::fixed << "Power (W): " << computeDynPower + memoryDynPower + computeSubThreshLeakage + memorySubThreshLeakage + computeGateLeakage + memoryGateLeakage << std::endl;
+    double power = computeDynPower + memoryDynPower + computeSubThreshLeakage + memorySubThreshLeakage + computeGateLeakage + memoryGateLeakage; 
+    std::cout << std::fixed << "Power (W): " << power << std::endl;
 
     std::cout << std::fixed << "Instruction Count: " << program.instructionCount << std::endl;
     // Note: PIPELINE_WIDTH - another duplicate
     const size_t PIPELINE_WIDTH = 3;
-    std::cout << std::fixed << "Performance (us): " << (!program.isPipelining ?
-    program.instructionCount * (1 / (CLOCK_FREQUENCY / 4)) * MICROSECONDS_PER_SECOND :
-    (program.instructionCount + PIPELINE_WIDTH - 1) * (1 / CLOCK_FREQUENCY) * MICROSECONDS_PER_SECOND) << std::endl;
+    double performance = (!program.isPipelining ? program.instructionCount * (1 / (CLOCK_FREQUENCY / 4)) * MICROSECONDS_PER_SECOND : (program.instructionCount + PIPELINE_WIDTH - 1) * (1 / CLOCK_FREQUENCY) * MICROSECONDS_PER_SECOND);
+    std::cout << std::fixed << "Performance (us): " << performance << std::endl;
     std::cout << std::fixed << "Utilization: " << utilization(program) << std::endl;
     std::cout << std::fixed << "Memory Usage: " << memoryUsage(program) << " bits" << std::endl;
-    */
+
+    chip_performance.push_back(performance);
+    chip_power.push_back(power);
 
     free(image);
     free(processed_image);
@@ -833,10 +837,12 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
 
     size_t min_vliw_width = 1;
     size_t max_vliw_width = 4;
-    bool do_pipelining = true;
+    bool do_pipelining = false;
     // Note: Need to change this if we need to add more tests
     std::vector<float> real_time_timings;
     std::vector<float> per_frame_timings;
+    std::vector<double> chip_performance;
+    std::vector<double> chip_power;
     for (size_t vliwWidth = min_vliw_width; vliwWidth <= max_vliw_width; vliwWidth++) {
         // Note: only make pipelining tests for vliwWidth == 1
         for (size_t pipelining = 0; (pipelining <= do_pipelining && vliwWidth == 1) || pipelining == 0; pipelining++) {
@@ -854,6 +860,8 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
                 getExpectedImageForOneBitEdgeDetection(imageFilename, 1, dimension, 1),
                 real_time_timings,
                 per_frame_timings,
+                chip_performance,
+                chip_power,
                 useGPU,
                 true,
                 false
@@ -871,6 +879,8 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
                 getExpectedImageForOneBitThinning(imageFilename, 1, dimension, 1),
                 real_time_timings,
                 per_frame_timings,
+                chip_performance,
+                chip_power,
                 useGPU,
                 true,
                 false
@@ -888,6 +898,8 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
                 getExpectedImageForOneBitSmoothing(imageFilename, 1, dimension, 1),
                 real_time_timings,
                 per_frame_timings,
+                chip_performance,
+                chip_power,
                 useGPU,
                 true,
                 false
@@ -905,6 +917,8 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
                 getExpectedImageForPrewittEdgeDetection(imageFilename, 6, dimension, 9),
                 real_time_timings,
                 per_frame_timings,
+                chip_performance,
+                chip_power,
                 useGPU,
                 true,
                 true
@@ -922,13 +936,15 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
                 getExpectedImageForMultiBitSmoothing(imageFilename, 6, dimension, 6),
                 real_time_timings,
                 per_frame_timings,
+                chip_performance,
+                chip_power,
                 useGPU,
                 true,
                 false
             );
 
             if (vliwWidth == 1 && !pipelining) {
-                const size_t NUM_BP_ITERATIONS = 10;
+                const size_t NUM_BP_ITERATIONS = 100;
                 testProgram(
                     ("programs/" + directory_name + "binary_bp_ising_model.vis").c_str(),
                     vliwWidth,
@@ -941,6 +957,8 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
                     getExpectedImageForBinaryBPIsingModel(imageFilename, 8, dimension, 1, NUM_BP_ITERATIONS),
                     real_time_timings,
                     per_frame_timings,
+                    chip_performance,
+                    chip_power,
                     useGPU,
                     false,
                     false
@@ -954,28 +972,51 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
     // Compute average processing time and average frame rate
     double total_real_time_duration = 0;
     double total_per_frame_duration = 0;
+    double total_chip_performance = 0;
+    double total_chip_power = 0;
     size_t num_total_tests = real_time_timings.size();
     for (size_t i = 0; i < num_total_tests; i++) {
         total_real_time_duration += (double) real_time_timings[i];
         total_per_frame_duration += (double) per_frame_timings[i];
+        total_chip_performance += chip_performance[i];
+        total_chip_power += chip_power[i];
     }
+
+    // TODO Should ideally be returned from this function and printed outside, but was I in a hurry!
+    std::cout << "Average chip performance: " << total_chip_performance / num_total_tests << " us" << std::endl;
+    std::cout << "Average chip power: " << total_chip_power / num_total_tests << " W" << std::endl;
     return {total_real_time_duration / ((double) num_total_tests), total_per_frame_duration / ((double) num_total_tests)};
 }
 
-int main() {
+int main(int argc, char* argv[]) {
     queryGPUProperties();
 
     // Performance evaluation
-    const char *imageFilename = "images/windmill_1700.jpg";
-    // for (size_t dimension = 100; dimension <= 2000; dimension += 100) {
-    //     std::cout << dimension << ", ";
-    //     std::pair<double, double> cpu_tests_result = testAllPrograms(imageFilename, dimension, false);
-    //     std::cout << 1000.0f / cpu_tests_result.second << std::endl;
-    //     std::pair<double, double> gpu_tests_result = testAllPrograms(imageFilename, dimension, true);
-    //     std::cout << 1000.0f / gpu_tests_result.second << ", ";
-    // }
+    const char *imageFilename;
+    size_t dimension;
 
-    size_t dimension = 1000;
+    const char *defaultImageFilename = "images/whitecat_600.jpg";
+    const size_t defaultDimension = 128;
+
+    if (argc > 1) {
+        imageFilename = argv[1];
+    } else {
+        imageFilename = defaultImageFilename;
+    }
+
+    if (argc > 2) {
+        try {
+            dimension = std::stoul(argv[2]);
+        } catch (const std::invalid_argument& e) {
+            std::cerr << "Invalid dimension argument. Using default dimension of 128." << std::endl;
+            dimension = defaultDimension;
+        } catch (const std::out_of_range& e) {
+            std::cerr << "Dimension argument out of range. Using default dimension of 128." << std::endl;
+            dimension = defaultDimension;
+        }
+    } else {
+        dimension = defaultDimension;
+    }
     // std::pair<double, double> cpu_tests_result = testAllPrograms(imageFilename, dimension, false);
     // std::cout << "Average real-time processing time (CPU): " << cpu_tests_result.first << " ms" << std::endl;
     // std::cout << "Average real-time frame rate (CPU): " << 1000.0f / cpu_tests_result.first << " fps" << std::endl;

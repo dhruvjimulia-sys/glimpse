@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 // Note: MEMORY_SIZE_IN_BITS
-#define MEMORY_SIZE_IN_BITS 130
+#define MEMORY_SIZE_IN_BITS 129
 #define CLOCK_FREQUENCY 2e8  // 200 MHz
 
 enum class InputKind { Address, PD, Up, Down, Right, Left, ZeroValue };
