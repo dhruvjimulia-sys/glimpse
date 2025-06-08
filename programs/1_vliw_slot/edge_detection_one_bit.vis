@@ -6,4 +6,5 @@ neighbour = PD + ~0 + CR (c);
 [0] = [0] + [1] + 1 (c);
 [1] = left + up + 0 (s);
 external = [0] + [1] + 1 (c);
+[0] = 0 + 0 + CR (c);
 end

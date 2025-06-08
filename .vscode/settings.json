@@ -63,7 +63,18 @@
         "ratio": "cpp",
         "functional": "cpp",
         "__node_handle": "cpp",
-        "deque": "cpp"
+        "deque": "cpp",
+        "codecvt": "cpp",
+        "list": "cpp",
+        "map": "cpp",
+        "unordered_map": "cpp",
+        "unordered_set": "cpp",
+        "numeric": "cpp",
+        "random": "cpp",
+        "regex": "cpp",
+        "fstream": "cpp",
+        "iomanip": "cpp",
+        "sstream": "cpp"
     },
     "[cpp]": {
         "editor.defaultFormatter": "ms-vscode.cpptools",

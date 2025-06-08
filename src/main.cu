@@ -13,6 +13,7 @@
 #include <errno.h>
 
 #include <opencv2/opencv.hpp>
+#include "cliargs/cxxopts.hpp"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb/stb_image.h"
@@ -49,6 +50,81 @@ uint8_t quantizeTo8Bit(uint16_t x, uint8_t n) {
     // Round to nearest integer by adding half of max_val
     uint32_t result = (static_cast<uint32_t>(x) * 255 + (max_val / 2)) / max_val;
     return static_cast<uint8_t>(result);
+}
+
+uint8_t* transform_image_real_time(const cv::Mat& inputFrame, int new_dimension, int new_bits) {
+    cv::Mat gray;
+    int width = inputFrame.cols;
+    int height = inputFrame.rows;
+
+    // Convert to grayscale if needed
+    if (inputFrame.channels() == 3) {
+        cv::cvtColor(inputFrame, gray, cv::COLOR_BGR2GRAY);
+    } else if (inputFrame.channels() == 4) {
+        cv::cvtColor(inputFrame, gray, cv::COLOR_BGRA2GRAY);
+    } else {
+        gray = inputFrame;
+    }
+
+    // Ensure 8-bit single channel
+    if (gray.type() != CV_8U) {
+        gray.convertTo(gray, CV_8U);
+    }
+
+    int channels = 1;
+
+    // Allocate and copy
+    size_t dataSize = static_cast<size_t>(gray.rows) * gray.cols;
+    uint8_t* img_data = new uint8_t[dataSize];
+    std::memcpy(img_data, gray.data, dataSize);
+
+    if (new_bits < 1 || new_bits > 8) {
+        stbi_image_free(img_data);
+        return nullptr;
+    }
+    
+    uint8_t* resized_data = (uint8_t*)malloc(new_dimension * new_dimension);
+    if (!resized_data) {
+        stbi_image_free(img_data);
+        return nullptr;
+    }
+
+    // Resize the image
+    stbir_resize_uint8_linear(img_data, width, height, 0,
+                       resized_data, new_dimension, new_dimension, 0,
+                       (stbir_pixel_layout) 1);
+    stbi_image_free(img_data); // Free original image data
+
+    // Convert to grayscale (1 channel)
+    uint8_t* gray_data = (uint8_t*)malloc(new_dimension * new_dimension);
+    if (!gray_data) {
+        free(resized_data);
+        return nullptr;
+    }
+
+    for (int i = 0; i < new_dimension * new_dimension; ++i) {
+        int src_idx = i * channels;
+        if (channels >= 3) {
+            // Use luminance formula: 0.299*R + 0.587*G + 0.114*B (integer approximation)
+            uint8_t r = resized_data[src_idx];
+            uint8_t g = resized_data[src_idx + 1];
+            uint8_t b = resized_data[src_idx + 2];
+            gray_data[i] = static_cast<uint8_t>((r * 299 + g * 587 + b * 114 + 500) / 1000);
+        } else {
+            gray_data[i] = resized_data[src_idx];
+        }
+    }
+    free(resized_data); 
+
+    // Quantized to required bit depth
+    const int max_level = (1 << new_bits) - 1;
+    if (max_level > 0) {
+        for (int i = 0; i < new_dimension * new_dimension; ++i) {
+            gray_data[i] = (gray_data[i] >> (8 - new_bits)) & max_level;
+        }
+    }
+
+    return gray_data;
 }
 
 uint8_t* transform_image(const char* filename, int new_dimension, int new_bits) {
@@ -132,7 +208,26 @@ uint8_t* transform_image(const char* filename, int new_dimension, int new_bits) 
     return gray_data;
 }
 
-std::pair<bool *, float> process_image_gpu(Program program, uint8_t* pixels, size_t image_x_dim, size_t image_y_dim, size_t num_iterations) {
+cv::Mat cropLargestSquare(const cv::Mat& frame) {
+    // Get the width and height of the frame
+    int width = frame.cols;
+    int height = frame.rows;
+
+    // Determine the size of the square (smallest of width and height)
+    int squareSize = std::min(width, height);
+
+    // Calculate top-left corner of the square
+    int x = (width - squareSize) / 2;
+    int y = (height - squareSize) / 2;
+
+    // Define the square ROI (Region of Interest)
+    cv::Rect squareROI(x, y, squareSize, squareSize);
+
+    // Crop and return the square region
+    return frame(squareROI).clone(); // clone to get a deep copy
+}
+
+std::pair<bool *, float> process_image_gpu(Program program, uint8_t* pixels, size_t image_x_dim, size_t image_y_dim, size_t num_iterations, bool real_time, std::string windowName, cv::VideoCapture* cap, size_t num_bits, bool twosComplementOutput) {
     size_t program_num_outputs = numOutputs(program);
     size_t program_num_shared_neighbours = numSharedNeighbours(program);
     
@@ -147,7 +242,9 @@ std::pair<bool *, float> process_image_gpu(Program program, uint8_t* pixels, siz
     size_t image_mem_size = sizeof(uint8_t) * image_size;
     uint8_t* dev_image;
     HANDLE_ERROR(cudaMalloc((void **) &dev_image, image_mem_size));
-    HANDLE_ERROR(cudaMemcpy(dev_image, pixels, image_mem_size, cudaMemcpyHostToDevice));
+    if (!real_time) {
+        HANDLE_ERROR(cudaMemcpy(dev_image, pixels, image_mem_size, cudaMemcpyHostToDevice));
+    }
 
     // debugging output
     size_t* dev_debug_output = nullptr;
@@ -187,7 +284,6 @@ std::pair<bool *, float> process_image_gpu(Program program, uint8_t* pixels, siz
 
     cudaEvent_t start, stop;
     float elapsedTime;
-    
     HANDLE_ERROR(cudaEventCreate(&start));
     HANDLE_ERROR(cudaEventCreate(&stop));
         
@@ -228,7 +324,64 @@ std::pair<bool *, float> process_image_gpu(Program program, uint8_t* pixels, siz
         (void *) &dev_result_values,
         (void *) &num_iterations
     };
-    cudaLaunchCooperativeKernel((void *) processingElemKernel, blocks, threads, kernelArgs);
+    if (!real_time) {
+        cudaLaunchCooperativeKernel((void *) processingElemKernel, blocks, threads, kernelArgs);
+    } else {
+        cv::Mat frame;
+        while (true) {
+            *cap >> frame;
+            if (frame.empty()) {
+                std::cerr << "Error: Blank frame grabbed\n";
+                break;
+            }
+            frame = cropLargestSquare(frame);
+            // TODO assuming image_x_dim is the required dimension, and assuming square image (image_x_dim == image_y_dim)
+            size_t dimension = image_x_dim;
+
+            uint8_t* pixels = transform_image_real_time(frame, dimension, num_bits);
+            HANDLE_ERROR(cudaMemcpy(dev_image, pixels, image_mem_size, cudaMemcpyHostToDevice));
+            free(pixels);
+            cudaLaunchCooperativeKernel((void *) processingElemKernel, blocks, threads, kernelArgs);
+            bool* external_values = (bool *) malloc(external_values_mem_size);
+            HANDLE_ERROR(cudaMemcpy(external_values, dev_external_values, external_values_mem_size, cudaMemcpyDeviceToHost));
+            
+            size_t iter = 0;
+
+            // TODO Repeated code with testProgram
+            // Reconcile boolean values to 8-bit values
+            uint8_t* data = (uint8_t*) malloc(dimension * dimension * sizeof(uint8_t));
+            if (!data) {
+                exit(EXIT_FAILURE);
+            }
+            for (size_t y = 0; y < dimension; y++) {
+                for (size_t x = 0; x < dimension; x++) {
+                    size_t offset = x + y * dimension;
+                    uint16_t val = 0;
+                    const size_t MAX_BITS = 16;
+                    for (int i = MAX_BITS - 1; i >= 0; i--) {
+                        bool bit = (i < program_num_outputs) ? external_values[iter * program_num_outputs * image_size + program_num_outputs * offset + i] : (
+                            twosComplementOutput ?
+                            external_values[iter * program_num_outputs * image_size + program_num_outputs * offset + (program_num_outputs - 1)] :
+                            0
+                        );
+                        val |= bit << i;
+                    }
+                    val = twosComplementOutput ? std::abs((int16_t) val) : val;
+                    val = quantizeTo8Bit(val, twosComplementOutput ? program_num_outputs - 1 : program_num_outputs);
+                    data[y * dimension + x] = val;
+                }
+            }
+            cv::Mat output_frame(dimension, dimension, CV_8UC1, data);
+
+            cv::imshow(windowName, output_frame);
+
+            // Wait for 30ms and check if 'q' or ESC was pressed to quit
+            char c = (char)cv::waitKey(5);
+            if (c == 27 || c == 'q') { // ESC or q key
+                break;
+            }
+        }
+    }
 
     HANDLE_ERROR(cudaPeekAtLastError());
 
@@ -557,7 +710,7 @@ void testProgram(std::string programFilename,
     bool *processed_image = nullptr;
     if (useGPU) {
         auto normal_start = std::chrono::high_resolution_clock::now();
-        std::pair<bool *, float> process_image_result = process_image_gpu(program, image, dimension, dimension, num_iterations);
+        std::pair<bool *, float> process_image_result = process_image_gpu(program, image, dimension, dimension, num_iterations, false, "", nullptr, num_bits, twosComplementOutput);
         auto normal_stop = std::chrono::high_resolution_clock::now();
         size_t real_time_duration = std::chrono::duration_cast<std::chrono::microseconds>(normal_stop - normal_start).count();
         processed_image = process_image_result.first;
@@ -993,32 +1146,52 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
 int main(int argc, char* argv[]) {
     queryGPUProperties();
 
-    // Performance evaluation
-    const char *imageFilename;
-    size_t dimension;
+    const std::string windowName = "Simulator Output";
 
-    const char *defaultImageFilename = "images/whitecat_600.jpg";
-    const size_t defaultDimension = 128;
+    cxxopts::Options options("VisionChipSimulator", "Digital Vision Chip Simulator");
 
-    if (argc > 1) {
-        imageFilename = argv[1];
-    } else {
-        imageFilename = defaultImageFilename;
+    options.add_options()
+        ("i,image", "Input image file", cxxopts::value<std::string>()->default_value("images/whitecat_600.jpg"))
+        ("d,dimension", "Image dimension", cxxopts::value<size_t>()->default_value("128"))
+        ("p,program", "Program file", cxxopts::value<std::string>()->default_value("programs/1_vliw_slot/edge_detection_one_bit.vis"))
+        ("g,use-gpu", "Use GPU", cxxopts::value<bool>()->default_value("false"))
+        ("w,vliw-width", "VLIW width", cxxopts::value<int>()->default_value("1"))
+        ("r,real-time", "Real-time processing", cxxopts::value<bool>()->default_value("false"))
+        ("l,pipelining", "Enable pipelining", cxxopts::value<bool>()->default_value("false"))
+        ("b,bits", "Number of bits per pixel", cxxopts::value<size_t>()->default_value("1"))
+        ("t,twos-complement", "Use two's complement output", cxxopts::value<bool>()->default_value("false"))
+        ("dd,display-dimension", "Display dimension (for real-time processing)", cxxopts::value<size_t>()->default_value("1000"))
+        ("h,help", "Print usage");
+
+    auto result = options.parse(argc, argv);
+
+    if (result.count("help")) {
+        std::cout << options.help() << std::endl;
+        return 0;
     }
 
-    if (argc > 2) {
-        try {
-            dimension = std::stoul(argv[2]);
-        } catch (const std::invalid_argument& e) {
-            std::cerr << "Invalid dimension argument. Using default dimension of 128." << std::endl;
-            dimension = defaultDimension;
-        } catch (const std::out_of_range& e) {
-            std::cerr << "Dimension argument out of range. Using default dimension of 128." << std::endl;
-            dimension = defaultDimension;
-        }
-    } else {
-        dimension = defaultDimension;
-    }
+    std::string imageFilename = result["image"].as<std::string>();
+    size_t dimension = result["dimension"].as<size_t>();
+    std::string programFilename = result["program"].as<std::string>();
+    bool use_gpu = result["use-gpu"].as<bool>();
+    int vliw_width = result["vliw-width"].as<int>();
+    bool real_time = result["real-time"].as<bool>();
+    bool pipelining = result["pipelining"].as<bool>();
+    size_t num_bits = result["bits"].as<size_t>();
+    bool twosComplementOutput = result["twos-complement"].as<bool>();
+    size_t displayDimension = result["display-dimension"].as<size_t>();
+
+    std::cout << "Image: " << imageFilename << "\n"
+              << "Dimension: " << dimension << "\n"
+              << "Program: " << programFilename << "\n"
+              << "Use GPU: " << use_gpu << "\n"
+              << "VLIW Width: " << vliw_width << "\n"
+              << "Real-time: " << real_time << "\n"
+              << "Pipelining: " << pipelining << "\n"
+              << "Bits per pixel: " << num_bits << "\n"
+              << "Display Dimension: " << displayDimension << "\n"
+              << "Two's complement output: " << twosComplementOutput << std::endl;
+
     // std::pair<double, double> cpu_tests_result = testAllPrograms(imageFilename, dimension, false);
     // std::cout << "Average real-time processing time (CPU): " << cpu_tests_result.first << " ms" << std::endl;
     // std::cout << "Average real-time frame rate (CPU): " << 1000.0f / cpu_tests_result.first << " fps" << std::endl;
@@ -1032,41 +1205,34 @@ int main(int argc, char* argv[]) {
     // std::cout << "Average per-frame frame rate (GPU): " << 1000.0f / gpu_tests_result.second << " fps" << std::endl;
 
     cv::VideoCapture cap(0);
-
-    // Check if camera opened successfully
     if (!cap.isOpened()) {
         std::cerr << "Error: Could not open camera\n";
         return -1;
     }
 
-    cv::Mat frame;
-    const std::string windowName = "Camera Input";
+    // Set to known max resolution (example: 1920x1080)
+    // int maxWidth = 1280;
+    // int maxHeight = 720;
+    // cap.set(cv::CAP_PROP_FRAME_WIDTH, maxWidth);
+    // cap.set(cv::CAP_PROP_FRAME_HEIGHT, maxHeight);
 
-    // Create a window
-    cv::namedWindow(windowName, cv::WINDOW_AUTOSIZE);
 
-    while (true) {
-        cap >> frame; // Capture a new frame
+    // Create resizable window and match it to the camera resolution
+    // cv::namedWindow(windowName, cv::WINDOW_NORMAL);
+    // cv::resizeWindow(windowName, actualWidth, actualHeight);
+    cv::namedWindow(windowName, cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO);
+    cv::resizeWindow(windowName, displayDimension, displayDimension);
 
-        if (frame.empty()) {
-            std::cerr << "Error: Blank frame grabbed\n";
-            break;
-        }
+    // TODO Remove repetition with testProgram
+    std::string programText;
+    readFile(programFilename, programText);
 
-        // Show the frame in the window
-        cv::imshow(windowName, frame);
+    Parser parser(programText);
+    Program program = parser.parse(vliw_width, pipelining);
 
-        // Wait for 30ms and check if 'q' or ESC was pressed to quit
-        char c = (char)cv::waitKey(30);
-        if (c == 27 || c == 'q') { // ESC or q key
-            break;
-        }
-    }
-
-    // Release the camera and destroy the window
+    process_image_gpu(program, nullptr, dimension, dimension, 1, real_time, windowName, &cap, num_bits, twosComplementOutput); 
     cap.release();
     cv::destroyAllWindows();
-
 
     return EXIT_SUCCESS;
 }
