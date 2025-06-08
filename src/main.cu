@@ -12,6 +12,8 @@
 #include <sys/types.h>
 #include <errno.h>
 
+#include <opencv2/opencv.hpp>
+
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb/stb_image.h"
 #define STB_IMAGE_RESIZE_IMPLEMENTATION
@@ -1023,11 +1025,47 @@ int main(int argc, char* argv[]) {
     // std::cout << "Average per-frame processing time (CPU): " << cpu_tests_result.second << " ms" << std::endl;
     // std::cout << "Average per-frame frame rate (CPU): " << 1000.0f / cpu_tests_result.second << " fps" << std::endl;
 
-    std::pair<double, double> gpu_tests_result = testAllPrograms(imageFilename, dimension, true);
-    std::cout << "Average real-time processing time (GPU): " << gpu_tests_result.first << " ms" << std::endl;
-    std::cout << "Average real-time frame rate (GPU): " << 1000.0f / gpu_tests_result.first << " fps" << std::endl;
-    std::cout << "Average per-frame processing time (GPU): " << gpu_tests_result.second << " ms" << std::endl;
-    std::cout << "Average per-frame frame rate (GPU): " << 1000.0f / gpu_tests_result.second << " fps" << std::endl;
+    // std::pair<double, double> gpu_tests_result = testAllPrograms(imageFilename, dimension, true);
+    // std::cout << "Average real-time processing time (GPU): " << gpu_tests_result.first << " ms" << std::endl;
+    // std::cout << "Average real-time frame rate (GPU): " << 1000.0f / gpu_tests_result.first << " fps" << std::endl;
+    // std::cout << "Average per-frame processing time (GPU): " << gpu_tests_result.second << " ms" << std::endl;
+    // std::cout << "Average per-frame frame rate (GPU): " << 1000.0f / gpu_tests_result.second << " fps" << std::endl;
+
+    cv::VideoCapture cap(0);
+
+    // Check if camera opened successfully
+    if (!cap.isOpened()) {
+        std::cerr << "Error: Could not open camera\n";
+        return -1;
+    }
+
+    cv::Mat frame;
+    const std::string windowName = "Camera Input";
+
+    // Create a window
+    cv::namedWindow(windowName, cv::WINDOW_AUTOSIZE);
+
+    while (true) {
+        cap >> frame; // Capture a new frame
+
+        if (frame.empty()) {
+            std::cerr << "Error: Blank frame grabbed\n";
+            break;
+        }
+
+        // Show the frame in the window
+        cv::imshow(windowName, frame);
+
+        // Wait for 30ms and check if 'q' or ESC was pressed to quit
+        char c = (char)cv::waitKey(30);
+        if (c == 27 || c == 'q') { // ESC or q key
+            break;
+        }
+    }
+
+    // Release the camera and destroy the window
+    cap.release();
+    cv::destroyAllWindows();
 
 
     return EXIT_SUCCESS;
