@@ -9,7 +9,8 @@ NVCC = nvcc
 # CFLAGS = -arch=sm_61 -Xptxas -O3 -Xcompiler -O3 -use_fast_math -rdc=true -Xcudafe "--diag_suppress=170 --diag_suppress=550 --diag_suppress=1675"
 
 # debugging build
-CFLAGS = -arch=sm_61 -Xptxas -O1 -Xcompiler -O1 -use_fast_math -rdc=true -Xcudafe "--diag_suppress=170 --diag_suppress=550 --diag_suppress=1675"
+# Computing Labs: CFLAGS = -arch=sm_75 -Xptxas -O1 -Xcompiler -O1 -use_fast_math -rdc=true -Xcudafe "--diag_suppress=170 --diag_suppress=550 --diag_suppress=1675"
+CFLAGS = -arch=sm_75 -Xptxas -O1 -Xcompiler -O1 -use_fast_math -rdc=true -Xcudafe "--diag_suppress=170 --diag_suppress=550 --diag_suppress=1675"
 
 # debugging + address sanitizer
 # CFLAGS = -arch=sm_61 -Xcompiler -fsanitize=address -Xcompiler -fsanitize=undefined -g -O1 -use_fast_math -rdc=true -Xcudafe "--diag_suppress=170 --diag_suppress=550 --diag_suppress=1675"

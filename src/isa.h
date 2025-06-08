@@ -3,6 +3,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <cstdint>
 // Note: MEMORY_SIZE_IN_BITS
 #define MEMORY_SIZE_IN_BITS 129
 #define CLOCK_FREQUENCY 2e8  // 200 MHz
