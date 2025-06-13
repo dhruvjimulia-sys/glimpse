@@ -484,7 +484,7 @@ bool get_instruction_input_value_cpu(
     return (inputc.negated) ? !input_value : input_value;
 }
 
-std::pair<bool *, float> process_image_cpu(Program program, uint8_t* pixels, size_t image_x_dim, size_t image_y_dim, size_t num_iterations) {
+std::pair<bool *, float> process_image_cpu(Program program, uint8_t* pixels, size_t image_x_dim, size_t image_y_dim, size_t num_iterations, bool real_time, std::string windowName, cv::VideoCapture* cap, size_t num_bits, bool twosComplementOutput) {
     size_t program_num_outputs = numOutputs(program);
     size_t program_num_shared_neighbours = numSharedNeighbours(program);
     size_t image_size = image_x_dim * image_y_dim;
@@ -507,128 +507,178 @@ std::pair<bool *, float> process_image_cpu(Program program, uint8_t* pixels, siz
     }
     auto start_time = std::chrono::high_resolution_clock::now();
 
-    for (size_t iter = 0; iter < num_iterations; iter++) {
-        size_t output_number = 0;
-        bool output_number_increment = false;
-        size_t shared_neighbour_value = 0;
-        bool shared_neighbour_increment = false;
+    do {
+        if (real_time) {
+            cv::Mat frame;
+            *cap >> frame;
+            if (frame.empty()) {
+                std::cerr << "Error: Blank frame grabbed\n";
+                break;
+            }
+            frame = cropLargestSquare(frame);
+            // TODO assuming image_x_dim is the required dimension, and assuming square image (image_x_dim == image_y_dim)
+            size_t dimension = image_x_dim;
 
-        // Note: PIPELINE_WIDTH
-        size_t PIPELINE_WIDTH = program.isPipelining ? 3 : 1;
-        bool* result_values = (bool *) malloc(image_size * PIPELINE_WIDTH * program.vliwWidth);
+            pixels = transform_image_real_time(frame, dimension, num_bits);
+        }
 
-        size_t pd_bit = 0;
-        bool pd_increment = false;
+        for (size_t iter = 0; iter < num_iterations; iter++) {
+            size_t output_number = 0;
+            bool output_number_increment = false;
+            size_t shared_neighbour_value = 0;
+            bool shared_neighbour_increment = false;
 
-        for (size_t i = 0; (i < program.instructionCount && !program.isPipelining) || (i < program.instructionCount + PIPELINE_WIDTH - 1 && program.isPipelining); i++) {
-            for (size_t x = 0; x < image_x_dim; x++) {
-                for (size_t y = 0; y < image_y_dim; y++) {
-                    size_t offset = x + y * image_x_dim;
-                    if (i < program.instructionCount) {
-                        for (size_t j = 0; j < program.vliwWidth; j++) {
-                            const Instruction instruction = program.instructions[i * program.vliwWidth + j];
-                            if (instruction.isNop) {
-                                continue;
-                            }
-                            bool carryval = false;
-                            switch (instruction.carry) {
-                                case Carry::CR: carryval = carry_register[offset * program.vliwWidth + j]; break;
-                                case Carry::One: carryval = true; break;
-                                case Carry::Zero: carryval = false; break;
-                            }
-                            bool input_one = get_instruction_input_value_cpu(
-                                instruction.input1,
-                                local_memory_values + offset * MEMORY_SIZE_IN_BITS,
-                                pixels,
-                                pd_bit,
-                                &pd_increment,
-                                x,
-                                y,
-                                image_x_dim,
-                                image_y_dim,
-                                image_size,
-                                offset,
-                                neighbour_shared_values,
-                                program_num_shared_neighbours,
-                                shared_neighbour_value
-                            );
-                            bool input_two = get_instruction_input_value_cpu(
-                                instruction.input2,
-                                local_memory_values + offset * MEMORY_SIZE_IN_BITS,
-                                pixels,
-                                pd_bit,
-                                &pd_increment,
-                                x,
-                                y,
-                                image_x_dim,
-                                image_y_dim,
-                                image_size,
-                                offset,
-                                neighbour_shared_values,
-                                program_num_shared_neighbours,
-                                shared_neighbour_value
-                            );
+            // Note: PIPELINE_WIDTH
+            size_t PIPELINE_WIDTH = program.isPipelining ? 3 : 1;
+            bool* result_values = (bool *) malloc(image_size * PIPELINE_WIDTH * program.vliwWidth);
 
-                            const bool sum = (input_one != input_two) != carryval;
-                            const bool carry = (carryval && (input_one != input_two)) || (input_one && input_two);
-                            
-                            result_values[(offset * PIPELINE_WIDTH + (i % PIPELINE_WIDTH)) * program.vliwWidth + j] = (instruction.resultType.value == 's') ? sum : carry;
+            size_t pd_bit = 0;
+            bool pd_increment = false;
 
-                            // Interesting choice...
-                            if (instruction.carry == Carry::CR) {
-                                carry_register[offset * program.vliwWidth + j] = carry;
+            for (size_t i = 0; (i < program.instructionCount && !program.isPipelining) || (i < program.instructionCount + PIPELINE_WIDTH - 1 && program.isPipelining); i++) {
+                for (size_t x = 0; x < image_x_dim; x++) {
+                    for (size_t y = 0; y < image_y_dim; y++) {
+                        size_t offset = x + y * image_x_dim;
+                        if (i < program.instructionCount) {
+                            for (size_t j = 0; j < program.vliwWidth; j++) {
+                                const Instruction instruction = program.instructions[i * program.vliwWidth + j];
+                                if (instruction.isNop) {
+                                    continue;
+                                }
+                                bool carryval = false;
+                                switch (instruction.carry) {
+                                    case Carry::CR: carryval = carry_register[offset * program.vliwWidth + j]; break;
+                                    case Carry::One: carryval = true; break;
+                                    case Carry::Zero: carryval = false; break;
+                                }
+                                bool input_one = get_instruction_input_value_cpu(
+                                    instruction.input1,
+                                    local_memory_values + offset * MEMORY_SIZE_IN_BITS,
+                                    pixels,
+                                    pd_bit,
+                                    &pd_increment,
+                                    x,
+                                    y,
+                                    image_x_dim,
+                                    image_y_dim,
+                                    image_size,
+                                    offset,
+                                    neighbour_shared_values,
+                                    program_num_shared_neighbours,
+                                    shared_neighbour_value
+                                );
+                                bool input_two = get_instruction_input_value_cpu(
+                                    instruction.input2,
+                                    local_memory_values + offset * MEMORY_SIZE_IN_BITS,
+                                    pixels,
+                                    pd_bit,
+                                    &pd_increment,
+                                    x,
+                                    y,
+                                    image_x_dim,
+                                    image_y_dim,
+                                    image_size,
+                                    offset,
+                                    neighbour_shared_values,
+                                    program_num_shared_neighbours,
+                                    shared_neighbour_value
+                                );
+
+                                const bool sum = (input_one != input_two) != carryval;
+                                const bool carry = (carryval && (input_one != input_two)) || (input_one && input_two);
+                                
+                                result_values[(offset * PIPELINE_WIDTH + (i % PIPELINE_WIDTH)) * program.vliwWidth + j] = (instruction.resultType.value == 's') ? sum : carry;
+
+                                // Interesting choice...
+                                if (instruction.carry == Carry::CR) {
+                                    carry_register[offset * program.vliwWidth + j] = carry;
+                                }
                             }
                         }
-                    }
 
-                    if (!program.isPipelining || (program.isPipelining && i >= PIPELINE_WIDTH - 1)) {
-                        for (size_t j = 0; j < program.vliwWidth; j++) {
-                            const Instruction instruction = 
-                            program.isPipelining ?
-                            program.instructions[(i - PIPELINE_WIDTH + 1) * program.vliwWidth + j] :
-                            program.instructions[i * program.vliwWidth + j];
-                            if (instruction.isNop) {
-                                continue;
-                            }
-                            bool resultvalue = !program.isPipelining ?
-                            result_values[(offset * PIPELINE_WIDTH + (i % PIPELINE_WIDTH)) * program.vliwWidth + j] :
-                            result_values[(offset * PIPELINE_WIDTH + ((i - PIPELINE_WIDTH + 1) % PIPELINE_WIDTH)) * program.vliwWidth + j];
-                            // result_values[offset * program.vliwWidth + j];
-                            switch (instruction.result.resultKind) {
-                                case ResultKind::Address:
-                                    local_memory_values[offset * MEMORY_SIZE_IN_BITS + instruction.result.address] = resultvalue;
-                                    break;
-                                case ResultKind::Neighbour:
-                                    neighbour_shared_values[offset * program_num_shared_neighbours + shared_neighbour_value] = resultvalue;
-                                    shared_neighbour_increment = true;
-                                    break;
-                                case ResultKind::External:
-                                    external_values[iter * program_num_outputs * image_size + program_num_outputs * offset + output_number] = resultvalue;
-                                    output_number_increment = true;
-                                    break;
+                        if (!program.isPipelining || (program.isPipelining && i >= PIPELINE_WIDTH - 1)) {
+                            for (size_t j = 0; j < program.vliwWidth; j++) {
+                                const Instruction instruction = 
+                                program.isPipelining ?
+                                program.instructions[(i - PIPELINE_WIDTH + 1) * program.vliwWidth + j] :
+                                program.instructions[i * program.vliwWidth + j];
+                                if (instruction.isNop) {
+                                    continue;
+                                }
+                                bool resultvalue = !program.isPipelining ?
+                                result_values[(offset * PIPELINE_WIDTH + (i % PIPELINE_WIDTH)) * program.vliwWidth + j] :
+                                result_values[(offset * PIPELINE_WIDTH + ((i - PIPELINE_WIDTH + 1) % PIPELINE_WIDTH)) * program.vliwWidth + j];
+                                // result_values[offset * program.vliwWidth + j];
+                                switch (instruction.result.resultKind) {
+                                    case ResultKind::Address:
+                                        local_memory_values[offset * MEMORY_SIZE_IN_BITS + instruction.result.address] = resultvalue;
+                                        break;
+                                    case ResultKind::Neighbour:
+                                        neighbour_shared_values[offset * program_num_shared_neighbours + shared_neighbour_value] = resultvalue;
+                                        shared_neighbour_increment = true;
+                                        break;
+                                    case ResultKind::External:
+                                        external_values[iter * program_num_outputs * image_size + program_num_outputs * offset + output_number] = resultvalue;
+                                        output_number_increment = true;
+                                        break;
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            if (pd_increment) {
-                pd_bit++;
-            }
-            pd_increment = false;
+                if (pd_increment) {
+                    pd_bit++;
+                }
+                pd_increment = false;
 
-            if (shared_neighbour_increment) {
-                shared_neighbour_value++;
-            }
-            shared_neighbour_increment = false;
+                if (shared_neighbour_increment) {
+                    shared_neighbour_value++;
+                }
+                shared_neighbour_increment = false;
 
-            if (output_number_increment) {
-                output_number++;
+                if (output_number_increment) {
+                    output_number++;
+                }
+                output_number_increment = false;
             }
-            output_number_increment = false;
         }
-    }
 
+        if (real_time) {
+            // Reconcile boolean values to 8-bit values
+            uint8_t* data = (uint8_t*) malloc(image_x_dim * image_y_dim * sizeof(uint8_t));
+            if (!data) {
+                exit(EXIT_FAILURE);
+            }
+            for (size_t y = 0; y < image_y_dim; y++) {
+                for (size_t x = 0; x < image_x_dim; x++) {
+                    size_t offset = x + y * image_x_dim;
+                    uint16_t val = 0;
+                    const size_t MAX_BITS = 16;
+                    for (int i = MAX_BITS - 1; i >= 0; i--) {
+                        bool bit = (i < program_num_outputs) ? external_values[program_num_outputs * offset + i] : (
+                            twosComplementOutput ?
+                            external_values[program_num_outputs * offset + (program_num_outputs - 1)] :
+                            0
+                        );
+                        val |= bit << i;
+                    }
+                    val = twosComplementOutput ? std::abs((int16_t) val) : val;
+                    val = quantizeTo8Bit(val, twosComplementOutput ? program_num_outputs - 1 : program_num_outputs);
+                    data[y * image_x_dim + x] = val;
+                }
+            }
+            cv::Mat output_frame(image_y_dim, image_x_dim, CV_8UC1, data);
+
+            cv::imshow(windowName, output_frame);
+
+            // Wait for 30ms and check if 'q' or ESC was pressed to quit
+            char c = (char)cv::waitKey(5);
+            if (c == 27 || c == 'q') { // ESC or q key
+                break;
+            }
+        }
+    } while (real_time);
     auto stop_time = std::chrono::high_resolution_clock::now();
     size_t duration = std::chrono::duration_cast<std::chrono::microseconds>(stop_time - start_time).count();
     float durationInMilliseconds = duration / 1000.0f;
@@ -636,11 +686,6 @@ std::pair<bool *, float> process_image_cpu(Program program, uint8_t* pixels, siz
     free(neighbour_shared_values);
     free(local_memory_values);
     free(carry_register);
-
-    // std::cout << "External values" << std::endl;
-    // for (size_t i = 0; i < image_size * program_num_outputs; i++) {
-    //     std::cout << "offset " << i << ": " << external_values[i] << std::endl;
-    // }
 
     return {external_values, durationInMilliseconds};
 }
@@ -718,7 +763,7 @@ void testProgram(std::string programFilename,
         real_time_timings.push_back((real_time_duration / 1000.0f) / num_iterations);
     } else {
         auto normal_start = std::chrono::high_resolution_clock::now();
-        std::pair<bool *, float> process_image_result = process_image_cpu(program, image, dimension, dimension, num_iterations);
+        std::pair<bool *, float> process_image_result = process_image_cpu(program, image, dimension, dimension, num_iterations, false, "", nullptr, num_bits, twosComplementOutput);
         auto normal_stop = std::chrono::high_resolution_clock::now();
         size_t real_time_duration = std::chrono::duration_cast<std::chrono::microseconds>(normal_stop - normal_start).count();
         processed_image = process_image_result.first;
@@ -1094,12 +1139,12 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
                 chip_performance,
                 chip_power,
                 useGPU,
-                true,
+                true, 
                 false
             );
 
             if (vliwWidth == 1 && !pipelining) {
-                const size_t NUM_BP_ITERATIONS = 100;
+                const size_t NUM_BP_ITERATIONS = 10;
                 testProgram(
                     ("programs/" + directory_name + "binary_bp_ising_model.vis").c_str(),
                     vliwWidth,
@@ -1146,9 +1191,9 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
 int main(int argc, char* argv[]) {
     queryGPUProperties();
 
-    const std::string windowName = "Simulator Output";
+    const std::string simulatorOutputWindowName = "Simulator Output";
 
-    cxxopts::Options options("VisionChipSimulator", "Digital Vision Chip Simulator");
+    cxxopts::Options options("Glimpse", "GPU-accelerated microarchitecture simulator for digital vision chips with integrated power and area modelling");
 
     options.add_options()
         ("i,image", "Input image file", cxxopts::value<std::string>()->default_value("images/whitecat_600.jpg"))
@@ -1192,47 +1237,46 @@ int main(int argc, char* argv[]) {
               << "Display Dimension: " << displayDimension << "\n"
               << "Two's complement output: " << twosComplementOutput << std::endl;
 
-    // std::pair<double, double> cpu_tests_result = testAllPrograms(imageFilename, dimension, false);
-    // std::cout << "Average real-time processing time (CPU): " << cpu_tests_result.first << " ms" << std::endl;
-    // std::cout << "Average real-time frame rate (CPU): " << 1000.0f / cpu_tests_result.first << " fps" << std::endl;
-    // std::cout << "Average per-frame processing time (CPU): " << cpu_tests_result.second << " ms" << std::endl;
-    // std::cout << "Average per-frame frame rate (CPU): " << 1000.0f / cpu_tests_result.second << " fps" << std::endl;
+    if (!real_time) {
+        if (!use_gpu) {
+            std::pair<double, double> cpu_tests_result = testAllPrograms(imageFilename.c_str(), dimension, false);
+            // TODO Need to recheck real-time processing frame rate computation
+            // std::cout << "Average real-time processing time (CPU): " << cpu_tests_result.first << " ms" << std::endl;
+            // std::cout << "Average real-time frame rate (CPU): " << 1000.0f / cpu_tests_result.first << " fps" << std::endl;
+            std::cout << "Average per-frame processing time (CPU): " << cpu_tests_result.second << " ms" << std::endl;
+            std::cout << "Average per-frame frame rate (CPU): " << 1000.0f / cpu_tests_result.second << " fps" << std::endl;
+        } else {
+            std::pair<double, double> gpu_tests_result = testAllPrograms(imageFilename.c_str(), dimension, true);
+            // TODO Need to recheck real-time processing frame rate computation
+            // std::cout << "Average real-time processing time (GPU): " << gpu_tests_result.first << " ms" << std::endl;
+            // std::cout << "Average real-time frame rate (GPU): " << 1000.0f / gpu_tests_result.first << " fps" << std::endl;
+            std::cout << "Average per-frame processing time (GPU): " << gpu_tests_result.second << " ms" << std::endl;
+            std::cout << "Average per-frame frame rate (GPU): " << 1000.0f / gpu_tests_result.second << " fps" << std::endl;
+        }
+    } else {
+        cv::VideoCapture cap(0);
+        if (!cap.isOpened()) {
+            std::cerr << "Error: Could not open camera\n";
+            return -1;
+        }
+        std::cout << "Camera resolution: " << cap.get(cv::CAP_PROP_FRAME_WIDTH) << "x" << cap.get(cv::CAP_PROP_FRAME_HEIGHT) << std::endl;
+        cv::namedWindow(simulatorOutputWindowName, cv::WINDOW_NORMAL);
+        cv::resizeWindow(simulatorOutputWindowName, displayDimension, displayDimension);
+        std::string programText;
+        readFile(programFilename, programText);
+        Parser parser(programText);
+        Program program = parser.parse(vliw_width, pipelining);
+        uint8_t *pixels = (uint8_t *) malloc(dimension * dimension * sizeof(uint8_t));
 
-    // std::pair<double, double> gpu_tests_result = testAllPrograms(imageFilename, dimension, true);
-    // std::cout << "Average real-time processing time (GPU): " << gpu_tests_result.first << " ms" << std::endl;
-    // std::cout << "Average real-time frame rate (GPU): " << 1000.0f / gpu_tests_result.first << " fps" << std::endl;
-    // std::cout << "Average per-frame processing time (GPU): " << gpu_tests_result.second << " ms" << std::endl;
-    // std::cout << "Average per-frame frame rate (GPU): " << 1000.0f / gpu_tests_result.second << " fps" << std::endl;
+        if (use_gpu) {
+            process_image_gpu(program, pixels, dimension, dimension, 1, real_time, simulatorOutputWindowName, &cap, num_bits, twosComplementOutput); 
+        } else {
+            process_image_cpu(program, pixels, dimension, dimension, 1, real_time, simulatorOutputWindowName, &cap, num_bits, twosComplementOutput);
+        }
 
-    cv::VideoCapture cap(0);
-    if (!cap.isOpened()) {
-        std::cerr << "Error: Could not open camera\n";
-        return -1;
+        cap.release();
+        cv::destroyAllWindows();
     }
-
-    // Set to known max resolution (example: 1920x1080)
-    // int maxWidth = 1280;
-    // int maxHeight = 720;
-    // cap.set(cv::CAP_PROP_FRAME_WIDTH, maxWidth);
-    // cap.set(cv::CAP_PROP_FRAME_HEIGHT, maxHeight);
-
-
-    // Create resizable window and match it to the camera resolution
-    // cv::namedWindow(windowName, cv::WINDOW_NORMAL);
-    // cv::resizeWindow(windowName, actualWidth, actualHeight);
-    cv::namedWindow(windowName, cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO);
-    cv::resizeWindow(windowName, displayDimension, displayDimension);
-
-    // TODO Remove repetition with testProgram
-    std::string programText;
-    readFile(programFilename, programText);
-
-    Parser parser(programText);
-    Program program = parser.parse(vliw_width, pipelining);
-
-    process_image_gpu(program, nullptr, dimension, dimension, 1, real_time, windowName, &cap, num_bits, twosComplementOutput); 
-    cap.release();
-    cv::destroyAllWindows();
 
     return EXIT_SUCCESS;
 }

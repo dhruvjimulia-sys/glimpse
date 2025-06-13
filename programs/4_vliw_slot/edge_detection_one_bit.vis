@@ -1,5 +1,5 @@
 neighbour = PD + ~0 + CR (c): nop: nop: nop;
 [0] = 0 + right + CR (s): [1] = right + down + 0 (s): [2] = down + left + 0 (s): [3] = left + up + 0 (s);
 [0] = [0] + [1] + 1 (c): [1] = [2] + [3] + 1 (c): nop: nop;
-external = [0] + [1] + 1 (c): nop: nop: nop;
+[0] = 0 + 0 + CR (c): external = [0] + [1] + 1 (c): nop: nop;
 end
