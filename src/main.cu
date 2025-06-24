@@ -1144,7 +1144,7 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
             );
 
             if (vliwWidth == 1 && !pipelining) {
-                const size_t NUM_BP_ITERATIONS = 10;
+                const size_t NUM_BP_ITERATIONS = 5;
                 testProgram(
                     ("programs/" + directory_name + "binary_bp_ising_model.vis").c_str(),
                     vliwWidth,
@@ -1189,8 +1189,6 @@ std::pair<double, double> testAllPrograms(const char *imageFilename, size_t dime
 }
 
 int main(int argc, char* argv[]) {
-    queryGPUProperties();
-
     const std::string simulatorOutputWindowName = "Simulator Output";
 
     cxxopts::Options options("Glimpse", "GPU-accelerated microarchitecture simulator for digital vision chips with integrated power and area modelling");
@@ -1226,16 +1224,18 @@ int main(int argc, char* argv[]) {
     bool twosComplementOutput = result["twos-complement"].as<bool>();
     size_t displayDimension = result["display-dimension"].as<size_t>();
 
-    std::cout << "Image: " << imageFilename << "\n"
-              << "Dimension: " << dimension << "\n"
-              << "Program: " << programFilename << "\n"
-              << "Use GPU: " << use_gpu << "\n"
-              << "VLIW Width: " << vliw_width << "\n"
-              << "Real-time: " << real_time << "\n"
-              << "Pipelining: " << pipelining << "\n"
-              << "Bits per pixel: " << num_bits << "\n"
-              << "Display Dimension: " << displayDimension << "\n"
-              << "Two's complement output: " << twosComplementOutput << std::endl;
+    // queryGPUProperties();
+
+    // std::cout << "Image: " << imageFilename << "\n"
+    //         << "Dimension: " << dimension << "\n"
+    //         << "Program: " << programFilename << "\n"
+    //         << "Use GPU: " << use_gpu << "\n"
+    //         << "VLIW Width: " << vliw_width << "\n"
+    //         << "Real-time: " << real_time << "\n"
+    //         << "Pipelining: " << pipelining << "\n"
+    //         << "Bits per pixel: " << num_bits << "\n"
+    //         << "Display Dimension: " << displayDimension << "\n"
+    //         << "Two's complement output: " << twosComplementOutput << std::endl;
 
     if (!real_time) {
         if (!use_gpu) {
@@ -1243,23 +1243,23 @@ int main(int argc, char* argv[]) {
             // TODO Need to recheck real-time processing frame rate computation
             // std::cout << "Average real-time processing time (CPU): " << cpu_tests_result.first << " ms" << std::endl;
             // std::cout << "Average real-time frame rate (CPU): " << 1000.0f / cpu_tests_result.first << " fps" << std::endl;
-            std::cout << "Average per-frame processing time (CPU): " << cpu_tests_result.second << " ms" << std::endl;
-            std::cout << "Average per-frame frame rate (CPU): " << 1000.0f / cpu_tests_result.second << " fps" << std::endl;
+            std::cout << "Average processing time (CPU): " << cpu_tests_result.second << " ms" << std::endl;
+            std::cout << "Average frame rate (CPU): " << 1000.0f / cpu_tests_result.second << " fps" << std::endl;
         } else {
             std::pair<double, double> gpu_tests_result = testAllPrograms(imageFilename.c_str(), dimension, true);
             // TODO Need to recheck real-time processing frame rate computation
             // std::cout << "Average real-time processing time (GPU): " << gpu_tests_result.first << " ms" << std::endl;
             // std::cout << "Average real-time frame rate (GPU): " << 1000.0f / gpu_tests_result.first << " fps" << std::endl;
-            std::cout << "Average per-frame processing time (GPU): " << gpu_tests_result.second << " ms" << std::endl;
-            std::cout << "Average per-frame frame rate (GPU): " << 1000.0f / gpu_tests_result.second << " fps" << std::endl;
+            std::cout << "Average processing time (GPU): " << gpu_tests_result.second << " ms" << std::endl;
+            std::cout << "Average frame rate (GPU): " << 1000.0f / gpu_tests_result.second << " fps" << std::endl;
         }
     } else {
-        cv::VideoCapture cap(0);
+        cv::VideoCapture cap(0, cv::CAP_V4L2);
         if (!cap.isOpened()) {
             std::cerr << "Error: Could not open camera\n";
             return -1;
         }
-        std::cout << "Camera resolution: " << cap.get(cv::CAP_PROP_FRAME_WIDTH) << "x" << cap.get(cv::CAP_PROP_FRAME_HEIGHT) << std::endl;
+        // std::cout << "Camera resolution: " << cap.get(cv::CAP_PROP_FRAME_WIDTH) << "x" << cap.get(cv::CAP_PROP_FRAME_HEIGHT) << std::endl;
         cv::namedWindow(simulatorOutputWindowName, cv::WINDOW_NORMAL);
         cv::resizeWindow(simulatorOutputWindowName, displayDimension, displayDimension);
         std::string programText;

@@ -1,0 +1,4 @@
+./build/main --dimension 1024 --use-gpu --real-time --program programs/1_vliw_slot/edge_detection_one_bit.vis --bits 1
+./build/main --dimension 256 --use-gpu --real-time --program programs/1_vliw_slot/binary_bp_ising_model.vis --bits 8
+./build/main --dimension 512 --use-gpu  --real-time --program programs/1_vliw_slot/binary_bp_ising_model.vis --bits 8
+./build/main --dimension 256 --use-gpu > out.log
